@@ -19,20 +19,20 @@ KaValueParameterSymbol:
   isVararg: false
   location: LOCAL
   modality: FINAL
-  name: value
+  name: inner
   origin: SOURCE
-  primaryConstructorProperty: KaKotlinPropertySymbol(/Some.value)
+  primaryConstructorProperty: KaKotlinPropertySymbol(/Outer.inner)
   psi: KtParameter
   realPsi: KtParameter
   receiverParameter: null
   returnType: KaUsualClassType:
     annotations: []
     typeArguments: []
-    type: kotlin/String
+    type: Inner
   typeParameters: []
   visibility: PUBLIC
-  getContainingFileSymbol: KaFileSymbol(valueClassUnderlyingProperty.kt)
-  getContainingJvmClassName: Some
+  getContainingFileSymbol: KaFileSymbol(inlineClassUnderlyingPropertyWithInlineClassType.kt)
+  getContainingJvmClassName: Outer
   getContainingModule: KaSourceModule "Sources of main"
   deprecation: null
   importableFqName: null
@@ -58,26 +58,26 @@ KaKotlinPropertySymbol:
     modality: FINAL
     name: field
     origin: PROPERTY_BACKING_FIELD
-    owningProperty: KaKotlinPropertySymbol(/Some.value)
+    owningProperty: KaKotlinPropertySymbol(/Outer.inner)
     psi: null
     realPsi: null
     receiverParameter: null
     returnType: KaUsualClassType:
       annotations: []
       typeArguments: []
-      type: kotlin/String
+      type: Inner
     typeParameters: []
     visibility: PRIVATE
     getDispatchReceiver(): KaUsualClassType:
       annotations: []
       typeArguments: []
-      type: Some
-    getContainingFileSymbol: KaFileSymbol(valueClassUnderlyingProperty.kt)
-    getContainingJvmClassName: Some
+      type: Outer
+    getContainingFileSymbol: KaFileSymbol(inlineClassUnderlyingPropertyWithInlineClassType.kt)
+    getContainingJvmClassName: Outer
     getContainingModule: KaSourceModule "Sources of main"
     deprecation: null
     importableFqName: null
-  callableId: /Some.value
+  callableId: /Outer.inner
   contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
@@ -104,24 +104,24 @@ KaKotlinPropertySymbol:
     returnType: KaUsualClassType:
       annotations: []
       typeArguments: []
-      type: kotlin/String
+      type: Inner
     typeParameters: []
     valueParameters: []
     visibility: PUBLIC
     getDispatchReceiver(): KaUsualClassType:
       annotations: []
       typeArguments: []
-      type: Some
-    getContainingFileSymbol: KaFileSymbol(valueClassUnderlyingProperty.kt)
-    getContainingJvmClassName: Some
+      type: Outer
+    getContainingFileSymbol: KaFileSymbol(inlineClassUnderlyingPropertyWithInlineClassType.kt)
+    getContainingJvmClassName: Outer
     getContainingModule: KaSourceModule "Sources of main"
     deprecation: null
-    javaMethodName: getValue
+    javaMethodName: null
     importableFqName: null
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KaNonConstantInitializerValue(val value: String)
+  initializer: KaNonConstantInitializerValue(val inner: Inner)
   isActual: false
   isCompanion: false
   isConst: false
@@ -135,7 +135,7 @@ KaKotlinPropertySymbol:
   isVal: true
   location: CLASS
   modality: FINAL
-  name: value
+  name: inner
   origin: SOURCE
   primaryConstructorParameter: KaValueParameterSymbol:
     anchorPsi: KtParameter
@@ -158,20 +158,20 @@ KaKotlinPropertySymbol:
     isVararg: false
     location: LOCAL
     modality: FINAL
-    name: value
+    name: inner
     origin: SOURCE
-    primaryConstructorProperty: KaKotlinPropertySymbol(/Some.value)
+    primaryConstructorProperty: KaKotlinPropertySymbol(/Outer.inner)
     psi: KtParameter
     realPsi: KtParameter
     receiverParameter: null
     returnType: KaUsualClassType:
       annotations: []
       typeArguments: []
-      type: kotlin/String
+      type: Inner
     typeParameters: []
     visibility: PUBLIC
-    getContainingFileSymbol: KaFileSymbol(valueClassUnderlyingProperty.kt)
-    getContainingJvmClassName: Some
+    getContainingFileSymbol: KaFileSymbol(inlineClassUnderlyingPropertyWithInlineClassType.kt)
+    getContainingJvmClassName: Outer
     getContainingModule: KaSourceModule "Sources of main"
     deprecation: null
     importableFqName: null
@@ -181,16 +181,16 @@ KaKotlinPropertySymbol:
   returnType: KaUsualClassType:
     annotations: []
     typeArguments: []
-    type: kotlin/String
+    type: Inner
   setter: null
   typeParameters: []
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
     annotations: []
     typeArguments: []
-    type: Some
-  getContainingFileSymbol: KaFileSymbol(valueClassUnderlyingProperty.kt)
-  getContainingJvmClassName: Some
+    type: Outer
+  getContainingFileSymbol: KaFileSymbol(inlineClassUnderlyingPropertyWithInlineClassType.kt)
+  getContainingJvmClassName: Outer
   getContainingModule: KaSourceModule "Sources of main"
   deprecation: null
   isInline: false
