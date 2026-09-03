@@ -833,7 +833,7 @@ class LegacySwiftExportDslDiagnosticsTests {
     }
 
     @Test
-    fun `test the deprecation is reported regardless of the dsl call order`() {
+    fun `test the conflict is reported regardless of the dsl call order`() {
         val project = legacyDslProject {
             exportExtension.swift {
                 xcodeIntegration()
@@ -842,6 +842,20 @@ class LegacySwiftExportDslDiagnosticsTests {
         }
 
         project.assertContainsDiagnostic(KotlinToolingDiagnostics.ConflictingSwiftExportDsls)
+        project.assertNoDiagnostics(KotlinToolingDiagnostics.DeprecatedSwiftExportDsl)
+    }
+
+    @Test
+    fun `test the deprecation is reported when the legacy dsl is configured before the targets`() {
+        val project = buildProjectWithMPP(
+            code = {
+                legacySwiftExportExtension.moduleName.set("Legacy")
+                kotlin { jvm() }
+            }
+        ).also { it.evaluate() }
+
+        project.assertContainsDiagnostic(KotlinToolingDiagnostics.DeprecatedSwiftExportDsl)
+        project.assertNoDiagnostics(KotlinToolingDiagnostics.ConflictingSwiftExportDsls)
     }
 
     @Test
