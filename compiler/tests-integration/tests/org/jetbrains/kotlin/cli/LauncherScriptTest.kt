@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.nio.file.Files
+import kotlin.collections.mapOf
 
 class LauncherScriptTest : TestCaseWithTmpdir() {
     private fun runProcess(
@@ -426,6 +427,33 @@ class LauncherScriptTest : TestCaseWithTmpdir() {
             expectedExitCode = 0,
             expectedStdout = "",
             expectedStderr = ""
+        )
+    }
+
+    @Test
+    fun testPre17RuntimeJdk() {
+        runProcess(
+            "kotlinc",
+            "$testDataDirectory/helloWorld.kt",
+            K2JVMCompilerArguments::destination.cliArgument, tmpdir.path,
+            environment = mapOf("JAVA_HOME" to KtTestUtil.getJdk11Home().absolutePath),
+            expectedStderr = "error: running Kotlin compiler using JDK 11 will not be supported starting Kotlin 2.5.20-Beta1. Consider upgrading to at least JDK 17 or supplying '-Xallow-pre-17-runtime-jdk' (which will only work until Kotlin 2.5.20-Beta1). See https://jb.gg/ztwbfx for more details.",
+            expectedExitCode = 1,
+        )
+    }
+
+    @Test
+    fun testPre17RuntimeJdkTemporarilyPreserved() {
+        runProcess(
+            "kotlinc",
+            "-Xallow-pre-17-runtime-jdk", "$testDataDirectory/helloWorld.kt",
+            K2JVMCompilerArguments::destination.cliArgument, tmpdir.path,
+            environment = mapOf("JAVA_HOME" to KtTestUtil.getJdk11Home().absolutePath),
+            expectedStderr = """
+                warning: '-Xallow-pre-17-runtime-jdk' option will stop working in Kotlin 2.5.20-Beta1 because the minimal supported version will be raised to 17.
+warning: running Kotlin compiler using JDK 11 will not be supported starting Kotlin 2.5.20-Beta1. Consider upgrading to at least JDK 17.
+            """.trimIndent(),
+            expectedExitCode = 0,
         )
     }
 
