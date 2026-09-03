@@ -201,6 +201,11 @@ internal object KtStubElementFactories {
         )
 
         registerPlaceHolderFactory(
+            type = KtStubElementTypes.UNION_TYPE,
+            psiFactory = ::KtUnionType,
+        )
+
+        registerPlaceHolderFactory(
             type = KtStubElementTypes.DYNAMIC_TYPE,
             psiFactory = ::KtDynamicType,
         )
