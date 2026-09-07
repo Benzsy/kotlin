@@ -1798,6 +1798,12 @@ public class FirStandaloneNormalAnalysisSourceModuleSingleSymbolByPsiTestGenerat
     }
 
     @Test
+    @TestMetadata("fullValueClassPrimaryConstructor.kt")
+    public void testFullValueClassPrimaryConstructor() {
+      run("fullValueClassPrimaryConstructor.kt");
+    }
+
+    @Test
     @TestMetadata("fullValueClassSealed.kt")
     public void testFullValueClassSealed() {
       run("fullValueClassSealed.kt");
@@ -1813,6 +1819,12 @@ public class FirStandaloneNormalAnalysisSourceModuleSingleSymbolByPsiTestGenerat
     @TestMetadata("fullValueClassSingleFieldCommon.kt")
     public void testFullValueClassSingleFieldCommon() {
       run("fullValueClassSingleFieldCommon.kt");
+    }
+
+    @Test
+    @TestMetadata("fullValueClassUnderlyingProperty.kt")
+    public void testFullValueClassUnderlyingProperty() {
+      run("fullValueClassUnderlyingProperty.kt");
     }
 
     @Test
