@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.buildtools.tests.compilation.assertions.assertOutput
 import org.jetbrains.kotlin.buildtools.tests.compilation.assertions.assertOutputsContains
 import org.jetbrains.kotlin.buildtools.tests.compilation.model.*
 import org.jetbrains.kotlin.test.TestMetadata
+import org.jetbrains.kotlin.tooling.core.KotlinToolingVersion
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -126,10 +127,33 @@ class NonIncrementalCompilationSmokeTest : BaseCompilationTest() {
         }
     }
 
+    @BtaV2StrategyAgnosticCompilationTest
+    fun basicWasmCompilation(strategyConfig: CompilerExecutionStrategyConfiguration) {
+        wasmProject(strategyConfig) {
+            val libModule = module("js-ic-basic-lib")
+            val appModule = module("js-ic-basic-app", listOf(libModule))
+            libModule.compile()
+            appModule.compile()
+            appModule.link {
+                assertOutputs(
+                    "js-ic-basic-app.wasm",
+                    "js-ic-basic-app.mjs",
+                    "js-ic-basic-app.import-object.mjs",
+                    "js-ic-basic-app.js-builtins.mjs",
+                )
+            }
+        }
+    }
+
     @OptIn(ExperimentalCompilerArgument::class)
     @BtaV2StrategyAgnosticCompilationTest
     @TestMetadata("js-ic-basic-app")
     fun basicJsRichDtsGeneration(strategyConfig: CompilerExecutionStrategyConfiguration) {
+        if (strategyConfig.first.getCompilerVersion() < "2.5.0") {
+            // The rich dts generation is not available in pre 2.5.0 versions of Kotlin
+            return
+        }
+
         jsProject(strategyConfig, useRichDtsGenerator = true) {
             val libModule = module("js-ic-basic-lib")
             val appModule = module("js-ic-basic-app", listOf(libModule)) {

@@ -30,6 +30,8 @@ publish {
     artifactId = "typescript-export-standalone-embeddable"
 }
 
+description = "Standalone embeddable runner for TypeScript Export"
+
 runtimeJar(rewriteDefaultJarDepsToShadedCompiler())
 sourcesJar()
 javadocJar()

@@ -59,7 +59,23 @@ class JsModule(
     override val expectedOutputFileName: String
         get() = "$moduleName.js"
 
-    // TODO: move it to the common test infra
+    /**
+     * The output name the last compilation actually used. It defines the file name of the produced klib, so the linking
+     * operation has to resolve the packed klib through it rather than through [moduleName], which a test may override.
+     */
+    var lastCompileIrOutputName: String = moduleName
+        private set
+
+    /**
+     * The directory the linking operation writes the `.js` artifact into. It is intentionally separate from
+     * [outputDirectory] (which holds the input klib), mirroring the KGP, where the klib and the linked
+     * `.js` live in different directories. Keeping them separate also prevents the linking operation from deleting its
+     * own input klib (the JS output writer removes everything it did not write from its destination directory).
+     */
+    val linkOutputDirectory: Path
+        get() = buildDirectory.resolve("dist")
+
+    // TODO (KT-89200): move it to the common test infra
     fun link(
         destinationDirectory: Path,
         strategyConfig: ExecutionPolicy = defaultStrategyConfig,
@@ -71,13 +87,13 @@ class JsModule(
         val kotlinLogger = TestKotlinLogger()
         // handle both cases of NOPACK set to true and false
         val klibCompilationOutput = if (lastCompileProducedPackedKlib) {
-            outputDirectory.resolve("$moduleName.klib")
+            outputDirectory.resolve("$lastCompileIrOutputName.klib")
         } else {
             outputDirectory
         }
 
         val compilationOperation = kotlinToolchain.js.jsLinkingOperation(
-            sources = outputDirectory,
+            sources = klibCompilationOutput,
             destinationDirectory = destinationDirectory
         ) {
             // both are set before the caller's action, so that a test is able to override them
@@ -125,7 +141,7 @@ class JsModule(
         assertions: context(ModuleContext) CompilationOutcome.() -> Unit,
     ): CompilationResult =
         link(
-            outputDirectory,
+            linkOutputDirectory,
             strategyConfig,
             forceOutput,
             compilationConfigAction,
@@ -148,12 +164,18 @@ class JsModule(
             outputDirectory,
         ) {
             compilerArguments[NOPACK] = true
+            compilerArguments[IR_OUTPUT_NAME] = moduleName
             moduleCompilationConfigAction(this)
             compilationConfigAction(this)
             compilerArguments[LIBRARIES] = dependencyFiles
-            compilerArguments[IR_OUTPUT_NAME] = moduleName
+
+            // TODO: workaround to be removed after KT-86169
+            if (compilerArguments[IR_OUTPUT_NAME] == null) {
+                compilerArguments[IR_OUTPUT_NAME] = moduleName
+            }
 
             lastCompileProducedPackedKlib = !compilerArguments[NOPACK]
+            lastCompileIrOutputName = compilerArguments[IR_OUTPUT_NAME] ?: moduleName
         }
 
         return compilationOperation.let {

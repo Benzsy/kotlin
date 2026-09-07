@@ -111,6 +111,7 @@ internal class JsDtsGenerationOperationImpl private constructor(
         this[MODULE_KIND] = linkingOperation.compilerArguments[JsArgumentsImpl.MODULE_KIND]
             ?: JsModuleKind.ES.takeIf {
                 val target = linkingOperation.compilerArguments[JsArgumentsImpl.TARGET]
+                    ?.let { from -> JsEcmaVersion.entries.first { it.name == from.name } }
                 target != null && target >= JsEcmaVersion.ES2015
             }
             ?: JsModuleKind.UMD
