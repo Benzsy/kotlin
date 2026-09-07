@@ -20,7 +20,6 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrSetFieldImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrAnonymousInitializerSymbolImpl
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.transformFlat
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 
 /**
  * Moves non-public static fields of interfaces into a private nested class.
@@ -46,7 +45,7 @@ import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
  * }
  * ```
  */
-internal class JvmInterfacePrivateFieldsLowering(val context: JvmBackendContext) : ClassLoweringPass, IrElementTransformerVoid() {
+internal class JvmInterfacePrivateFieldsLowering(val context: JvmBackendContext) : ClassLoweringPass {
     override fun lower(irClass: IrClass) {
         if (!irClass.isJvmInterface) return
 
