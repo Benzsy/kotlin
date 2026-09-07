@@ -104,14 +104,13 @@ fun CompilerConfiguration.setupCommonArguments(
 }
 
 private fun CompilerConfiguration.handleMinimumRuntimeJdkOptOut(arguments: CommonCompilerArguments) {
-    val compilerOption = CommonCompilerArguments::allowPre17RuntimeJdk
-    val optOutOption = compilerOption.cliArgument
+    val optOutOption = CommonCompilerArguments::allowPre17RuntimeJdk.cliArgument
     val stopsWorkingIn = "2.5.20-Beta1"
     val requiredRuntimeJdk = 17
 
     val currentJdkVersion = getRuntimeJdkVersion()
 
-    if (currentJdkVersion < requiredRuntimeJdk && !compilerOption.get(arguments)) {
+    if (currentJdkVersion < requiredRuntimeJdk && !arguments.allowPre17RuntimeJdk) {
         report(
             COMPILER_ARGUMENTS_WARNING,
             "Running Kotlin compiler using JDK $currentJdkVersion will not be supported in future versions of Kotlin. " +
