@@ -5,11 +5,11 @@
 
 package org.jetbrains.kotlin.analysis.api.fir.rendering
 
-import org.jetbrains.kotlin.analysis.api.internals.KaRendererProvider
+import org.jetbrains.kotlin.analysis.api.internals.KaInternalsRendererProvider
 import org.jetbrains.kotlin.analysis.api.rendering.KaRenderer
 import org.jetbrains.kotlin.analysis.api.rendering.KaRenderingOutput
 
-internal class KaRendererProviderImpl : KaRendererProvider {
+internal class KaInternalsRendererProviderImpl : KaInternalsRendererProvider {
     override val defaultRenderer: KaRenderer
         get() = DEFAULT_RENDERER
 

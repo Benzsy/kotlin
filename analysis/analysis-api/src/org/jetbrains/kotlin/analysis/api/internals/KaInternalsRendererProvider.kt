@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.analysis.api.rendering.KaRenderingOutput
 @KaImplementationDetail
 @SubclassOptInRequired(KaImplementationDetail::class)
 @OptIn(KaExperimentalApi::class)
-public interface KaRendererProvider {
+public interface KaInternalsRendererProvider {
     public val defaultRenderer: KaRenderer
 
     public fun createStringRenderingOutput(indentationUnit: String): KaRenderingOutput

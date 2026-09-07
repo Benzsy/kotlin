@@ -9,7 +9,7 @@ import com.intellij.openapi.components.service
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.api.KaSession
-import org.jetbrains.kotlin.analysis.api.internals.KaRendererProvider
+import org.jetbrains.kotlin.analysis.api.internals.KaInternalsRendererProvider
 
 /**
  * A [KaRenderer] which resolves the engine-provided default renderer on the first rendering call.
@@ -28,7 +28,7 @@ internal class KaDeferredRenderer(private val customizations: List<KaRendererBui
          * Although it's a bad practice, deferred renderer initializers may contain side effects.
          * The [LazyThreadSafetyMode.SYNCHRONIZED] lazy value makes [customizations] run once.
          */
-        customizations.fold(service<KaRendererProvider>().defaultRenderer) { renderer, customization ->
+        customizations.fold(service<KaInternalsRendererProvider>().defaultRenderer) { renderer, customization ->
             renderer.copy(customization)
         }
     }

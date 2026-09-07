@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.api.KaSpi
 import org.jetbrains.kotlin.analysis.api.KaSpiExtensionPoint
-import org.jetbrains.kotlin.analysis.api.internals.KaRendererProvider
+import org.jetbrains.kotlin.analysis.api.internals.KaInternalsRendererProvider
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
 import org.jetbrains.kotlin.lexer.KtKeywordToken
 import org.jetbrains.kotlin.name.Name
@@ -75,7 +75,7 @@ public interface KaRenderingOutput {
          */
         public fun plainString(): KaRenderingOutput {
             @OptIn(KaImplementationDetail::class)
-            return service<KaRendererProvider>().createStringRenderingOutput(indentationUnit = "    ")
+            return service<KaInternalsRendererProvider>().createStringRenderingOutput(indentationUnit = "    ")
         }
 
         /**
@@ -86,7 +86,7 @@ public interface KaRenderingOutput {
          */
         public fun plainString(indentationUnit: String): KaRenderingOutput {
             @OptIn(KaImplementationDetail::class)
-            return service<KaRendererProvider>().createStringRenderingOutput(indentationUnit)
+            return service<KaInternalsRendererProvider>().createStringRenderingOutput(indentationUnit)
         }
     }
 }

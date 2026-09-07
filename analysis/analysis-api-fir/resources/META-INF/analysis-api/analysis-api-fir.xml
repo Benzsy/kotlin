@@ -45,8 +45,8 @@
     />
 
     <applicationService
-        serviceInterface="org.jetbrains.kotlin.analysis.api.internals.KaRendererProvider"
-        serviceImplementation="org.jetbrains.kotlin.analysis.api.fir.rendering.KaRendererProviderImpl"
+        serviceInterface="org.jetbrains.kotlin.analysis.api.internals.KaInternalsRendererProvider"
+        serviceImplementation="org.jetbrains.kotlin.analysis.api.fir.rendering.KaInternalsRendererProviderImpl"
     />
 
     <projectService
