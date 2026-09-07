@@ -6,6 +6,9 @@
 package org.jetbrains.kotlin.analysis.api.fir.rendering
 
 import org.jetbrains.kotlin.analysis.api.KaSession
+import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeOwner
+import org.jetbrains.kotlin.analysis.api.lifetime.assertIsValidAndAccessible
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.rendering.KaPiece
 import org.jetbrains.kotlin.analysis.api.rendering.KaRenderer
 import org.jetbrains.kotlin.analysis.api.rendering.KaRendererBuilder
@@ -17,7 +20,10 @@ import org.jetbrains.kotlin.analysis.api.rendering.KaRenderingContext
 @Suppress("UNCHECKED_CAST")
 internal class KaRendererImpl(val renderers: KaPieceRendererMap, val options: KaRenderingOptionMap) : KaRenderer {
     context(session: KaSession)
-    override fun <T> render(value: T, piece: KaPiece<T>, output: KaRenderingOutput) {
+    override fun <T> render(value: T, piece: KaPiece<T>, output: KaRenderingOutput) = session.withValidityAssertion {
+        if (value is KaLifetimeOwner) {
+            value.assertIsValidAndAccessible()
+        }
         render(value, piece, RenderingContext(output), output)
     }
 
