@@ -147,6 +147,9 @@ private fun LazyResolvedConfigurationWithArtifacts.filteredArtifacts(
 private val File.isCinteropKlib get() = name.contains("-cinterop-") || name.contains("Cinterop-")
 private val File.isJavaJar get() = extension == "jar"
 
+private const val LEGACY_EXPORT_DSL = "swiftExport { export() }"
+private const val XCODE_INTEGRATION_CONFIGURE_DSL = "export { swift { xcodeIntegration { configure() } } }"
+
 private fun Project.findAndCreateSwiftExportedModules(
     input: SwiftExportModulesInput,
 ): List<SwiftExportedModule> {
@@ -209,7 +212,9 @@ private fun Project.findAndCreateSwiftExportedModules(
     if (missingModules.isNotEmpty()) {
         reportDiagnostic(
             KotlinToolingDiagnostics.SwiftExportModuleResolutionError(
-                missingModules.map { it.name })
+                missingModules.map { it.name },
+                LEGACY_EXPORT_DSL,
+            )
         )
     }
 
@@ -246,6 +251,20 @@ private fun Project.findAndCreateSwiftExportedModules(
                 )
             )
         }
+
+    val allComponents = (resolvedExportArtifacts + resolvedDirectApiArtifacts)
+        .map { it.componentId }
+    val unmatchedOverrides = input.overrideSelectors.filterNot { selector ->
+        allComponents.any { selector.matches(it) }
+    }
+    if (unmatchedOverrides.isNotEmpty()) {
+        reportDiagnostic(
+            KotlinToolingDiagnostics.SwiftExportModuleResolutionError(
+                unmatchedOverrides.map { it.displayName },
+                XCODE_INTEGRATION_CONFIGURE_DSL,
+            )
+        )
+    }
 
     return result
 }

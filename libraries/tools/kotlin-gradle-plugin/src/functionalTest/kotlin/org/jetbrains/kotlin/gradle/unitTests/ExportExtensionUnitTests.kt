@@ -27,7 +27,6 @@ import org.jetbrains.kotlin.gradle.swiftexport.ExperimentalSwiftExportDsl
 import org.jetbrains.kotlin.gradle.unitTests.utils.applyEmbedAndSignEnvironment
 import org.jetbrains.kotlin.gradle.util.*
 import org.jetbrains.kotlin.gradle.util.EMBED_SWIFT_EXPORT_TASK_NAME
-import org.jetbrains.kotlin.gradle.util.assertNoDiagnostics
 import org.jetbrains.kotlin.gradle.util.buildProjectWithMPP
 import org.jetbrains.kotlin.gradle.util.exportDslProject
 import org.jetbrains.kotlin.gradle.util.exportExtension
@@ -1063,6 +1062,55 @@ class ExportExtensionSwiftExportTests {
             .parameters.swiftModules.getOrElse(emptyList())
 
         project.assertContainsDiagnostic(KotlinToolingDiagnostics.SwiftExportInvalidModuleName)
+    }
+
+    @Test
+    fun `an override for a dependency absent from the graph is reported`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    api("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                }
+            },
+            swiftExport = {
+                xcodeIntegration {
+                    configure("org.example:not-in-the-graph:1.0") { moduleName.set("Absent") }
+                }
+            }
+        )
+
+        project.evaluate()
+
+        // The diagnostic is reported while the swiftModules provider is realized, not during configuration.
+        project.tasks.withType(SwiftExportTask::class.java).single()
+            .parameters.swiftModules.getOrElse(emptyList())
+
+        project.assertContainsDiagnostic(KotlinToolingDiagnostics.SwiftExportModuleResolutionError)
+    }
+
+    @Test
+    fun `an override matched by a transitive dependency is not reported as absent`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    implementation("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                }
+            },
+            swiftExport = {
+                xcodeIntegration {
+                    configure("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0") { moduleName.set("ByteString") }
+                }
+            }
+        )
+
+        project.evaluate()
+
+        project.tasks.withType(SwiftExportTask::class.java).single()
+            .parameters.swiftModules.getOrElse(emptyList())
+
+        project.assertNoDiagnostics(KotlinToolingDiagnostics.SwiftExportModuleResolutionError)
     }
 }
 
