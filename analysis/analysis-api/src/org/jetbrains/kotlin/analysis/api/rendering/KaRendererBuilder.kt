@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.analysis.api.KaSession
 
 /** A mutable builder for customizing a [KaRenderer], available within [KaRenderer.copy]. */
 @KaExperimentalApi
+@KaRendererBuilderDslMarker
 @SubclassOptInRequired(KaImplementationDetail::class)
 public interface KaRendererBuilder {
     /** Pushes [renderer] on top of the stack for its [KaPieceRenderer.piece], so it takes precedence over the renderers below it. */
@@ -25,6 +26,13 @@ public interface KaRendererBuilder {
     /** Resets [option] back to its [KaRenderingOption.defaultValue]. */
     public fun <T> unset(option: KaRenderingOption<T>)
 }
+
+/**
+ * A DSL marker used to annotate entities related to the renderer customization in [KaRendererBuilder].
+ */
+@DslMarker
+@KaExperimentalApi
+public annotation class KaRendererBuilderDslMarker
 
 /**
  * Resets the [option] to a value returned from the [provider] using the previous effective value.
