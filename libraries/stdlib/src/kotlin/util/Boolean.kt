@@ -60,12 +60,8 @@ public inline fun Boolean.onTrue(action: () -> Unit): Boolean {
         returns(true) implies this@onTrue
         returns(false) implies !this@onTrue
     }
-    return if (this) {
-        action()
-        true
-    } else {
-        false
-    }
+    if (this) action()
+    return this
 }
 
 /**
@@ -124,12 +120,8 @@ public inline fun Boolean.onFalse(action: () -> Unit): Boolean {
         returns(true) implies this@onFalse
         returns(false) implies !this@onFalse
     }
-    return if (this) {
-        true
-    } else {
-        action()
-        false
-    }
+    if (!this) action()
+    return this
 }
 
 /**
