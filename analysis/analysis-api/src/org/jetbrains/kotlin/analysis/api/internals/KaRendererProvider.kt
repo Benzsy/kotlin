@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.analysis.api.internals
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.api.rendering.KaRenderer
+import org.jetbrains.kotlin.analysis.api.rendering.KaRenderingOutput
 
 /**
  * An implementation-agnostic facade for the default [KaRenderer].
@@ -17,4 +18,6 @@ import org.jetbrains.kotlin.analysis.api.rendering.KaRenderer
 @OptIn(KaExperimentalApi::class)
 public interface KaRendererProvider {
     public val defaultRenderer: KaRenderer
+
+    public fun createStringRenderingOutput(indentationUnit: String): KaRenderingOutput
 }

@@ -5,10 +5,13 @@
 
 package org.jetbrains.kotlin.analysis.api.rendering
 
+import com.intellij.openapi.components.service
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
+import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.api.KaPlatformInterface
 import org.jetbrains.kotlin.analysis.api.KaSpi
 import org.jetbrains.kotlin.analysis.api.KaSpiExtensionPoint
+import org.jetbrains.kotlin.analysis.api.internals.KaRendererProvider
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeOwner
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeToken
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
@@ -74,7 +77,8 @@ public interface KaRenderingOutput {
          * The rendered text is available via [toString].
          */
         public fun plainString(): KaRenderingOutput {
-            return KaStringRenderingOutput(indentationUnit = "    ")
+            @OptIn(KaImplementationDetail::class)
+            return service<KaRendererProvider>().createStringRenderingOutput(indentationUnit = "    ")
         }
 
         /**
@@ -84,7 +88,8 @@ public interface KaRenderingOutput {
          * The rendered text is available via [toString].
          */
         public fun plainString(indentationUnit: String): KaRenderingOutput {
-            return KaStringRenderingOutput(indentationUnit)
+            @OptIn(KaImplementationDetail::class)
+            return service<KaRendererProvider>().createStringRenderingOutput(indentationUnit)
         }
     }
 }
