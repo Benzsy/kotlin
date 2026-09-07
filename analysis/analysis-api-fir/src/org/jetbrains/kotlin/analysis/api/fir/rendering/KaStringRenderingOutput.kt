@@ -32,13 +32,13 @@ internal class KaStringRenderingOutput(private val indentationUnit: String) : Ka
         return this
     }
 
-    override fun indent(): KaRenderingOutput {
+    override fun pushIndent(): KaRenderingOutput {
         indentLevel++
         return this
     }
 
-    override fun unindent(): KaRenderingOutput {
-        require(indentLevel > 0) { "Unbalanced indent()/unindent() calls." }
+    override fun popIndent(): KaRenderingOutput {
+        require(indentLevel > 0) { "Unbalanced pushIndent()/popIndent() calls." }
         indentLevel--
         return this
     }

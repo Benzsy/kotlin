@@ -52,7 +52,7 @@ private object ValueParameterListRenderer : KaPieceRenderer<KaFunctionSymbol>(Ka
 
         output.group(KaPiece.ValueParameter) {
             output.punctuation("(")
-            if (isMultiline) output.indent()
+            if (isMultiline) output.pushIndent()
 
             parameters.forEachIndexed { index, parameter ->
                 if (index > 0) {
@@ -63,7 +63,7 @@ private object ValueParameterListRenderer : KaPieceRenderer<KaFunctionSymbol>(Ka
                 render(parameter, KaPiece.ValueParameter)
             }
 
-            if (isMultiline) output.unindent().newLine()
+            if (isMultiline) output.popIndent().newLine()
             output.punctuation(")")
         }
 

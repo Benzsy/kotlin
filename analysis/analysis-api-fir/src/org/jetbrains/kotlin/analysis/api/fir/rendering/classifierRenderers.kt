@@ -174,7 +174,7 @@ private object ClassBodyRenderer : KaPieceRenderer<KaClassSymbol>(KaPiece.ClassB
         output.space()
 
         output.group(KaPiece.Symbol) {
-            output.punctuation("{").indent()
+            output.punctuation("{").pushIndent()
 
             val enumEntries = members.filterIsInstance<KaEnumEntrySymbol>()
             val otherMembers = members.filter { it !is KaEnumEntrySymbol }
@@ -197,7 +197,7 @@ private object ClassBodyRenderer : KaPieceRenderer<KaClassSymbol>(KaPiece.ClassB
                 render(member, KaPiece.Symbol)
             }
 
-            output.unindent().newLine()
+            output.popIndent().newLine()
             output.punctuation("}")
         }
 

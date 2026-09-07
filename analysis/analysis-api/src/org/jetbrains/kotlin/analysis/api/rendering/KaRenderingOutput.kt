@@ -36,10 +36,10 @@ public interface KaRenderingOutput {
     public fun space(): KaRenderingOutput
 
     /** Increases the indentation level applied at the start of subsequent lines. */
-    public fun indent(): KaRenderingOutput
+    public fun pushIndent(): KaRenderingOutput
 
-    /** Decreases the indentation level. Must be balanced with a preceding [indent]. */
-    public fun unindent(): KaRenderingOutput
+    /** Decreases the indentation level. Must be balanced with a preceding [pushIndent]. */
+    public fun popIndent(): KaRenderingOutput
 
     /** Starts a new line at the current indentation level. */
     public fun newLine(): KaRenderingOutput

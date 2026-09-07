@@ -202,10 +202,10 @@ private object PropertyRenderer : KaPieceRenderer<KaPropertySymbol>(KaPiece.Prop
 
         // An explicit backing field is rendered as a declaration of its own, on an indented line below the property.
         value.backingFieldSymbol?.takeIf { it.isNotDefault }?.let { backingField ->
-            output.indent()
+            output.pushIndent()
             output.newLine()
             render(backingField, KaPiece.BackingField)
-            output.unindent()
+            output.popIndent()
         }
 
         render(value, KaPiece.PropertyAccessors)
@@ -221,10 +221,10 @@ private object PropertyAccessorsRenderer : KaPieceRenderer<KaPropertySymbol>(KaP
         val setter = value.setter?.takeIf { isAccessorRendered(it) }
         if (getter == null && setter == null) return true
 
-        output.indent()
+        output.pushIndent()
         getter?.let { output.newLine(); render(it, KaPiece.PropertyAccessor) }
         setter?.let { output.newLine(); render(it, KaPiece.PropertyAccessor) }
-        output.unindent()
+        output.popIndent()
 
         return true
     }
