@@ -17,7 +17,6 @@ import org.jetbrains.kotlin.analysis.api.rendering.KaRenderingOption
 import org.jetbrains.kotlin.analysis.api.rendering.KaRenderingOutput
 import org.jetbrains.kotlin.analysis.api.rendering.KaRenderingContext
 
-@Suppress("UNCHECKED_CAST")
 internal class KaRendererImpl(val renderers: KaPieceRendererMap, val options: KaRenderingOptionMap) : KaRenderer {
     context(session: KaSession)
     override fun <T> render(value: T, piece: KaPiece<T>, output: KaRenderingOutput) = session.withValidityAssertion {
@@ -60,12 +59,14 @@ internal class KaRendererImpl(val renderers: KaPieceRendererMap, val options: Ka
         }
 
         override fun <T> valueFor(option: KaRenderingOption<T>): T {
+            @Suppress("UNCHECKED_CAST")
             return (options[option] as T?) ?: option.defaultValue
         }
     }
 
     context(session: KaSession)
     private fun <T> render(value: T, piece: KaPiece<T>, context: RenderingContext, output: KaRenderingOutput) {
+        @Suppress("UNCHECKED_CAST")
         val rendererTower = renderers.getValue(piece) as List<KaPieceRenderer<T>>
 
         try {
