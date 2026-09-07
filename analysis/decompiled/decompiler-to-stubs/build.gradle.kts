@@ -13,6 +13,8 @@ dependencies {
     implementation(project(":core:descriptors"))
     implementation(project(":core:compiler.common.jvm"))
     implementation(project(":kotlin-util-klib"))
+    implementation(project(":analysis:analysis-internal-utils"))
+    implementation(project(":analysis:analysis-api"))
     testImplementation(testFixtures(project(":compiler:tests-common-new")))
 
     api(intellijCore())
