@@ -24,6 +24,9 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.internal.normali
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.tasks.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftimport.whenSwiftPMImportAvailable
 import org.jetbrains.kotlin.gradle.plugin.mpp.export.SwiftExportConfigurationCompat
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.ConsumerOverridesMetadataSource
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportDependencySelector
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportModuleOverride
 import org.jetbrains.kotlin.gradle.tasks.locateOrRegisterTask
 import org.jetbrains.kotlin.gradle.utils.*
 import org.jetbrains.kotlin.konan.target.Distribution
@@ -75,6 +78,7 @@ internal fun Project.registerSwiftExportTask(
         mainCompilation = mainCompilation,
         swiftApiFlattenPackage = swiftExportConfiguration.rootPackage,
         exportedModules = swiftExportConfiguration.exportedModules,
+        moduleOverrides = swiftExportConfiguration.moduleOverrides,
         customSetting = swiftExportConfiguration.settings
     )
 
@@ -166,6 +170,7 @@ private fun Project.registerSwiftExportRun(
     mainCompilation: KotlinNativeCompilation,
     swiftApiFlattenPackage: Provider<String>,
     exportedModules: Provider<Set<SwiftExportedDependency>>,
+    moduleOverrides: Provider<Map<SwiftExportDependencySelector, SwiftExportModuleOverride>>,
     customSetting: Provider<Map<String, String>>,
 ): TaskProvider<SwiftExportTask> {
     val swiftExportTaskName = lowerCamelCaseName(
@@ -176,8 +181,20 @@ private fun Project.registerSwiftExportRun(
     val outputs = layout.buildDirectory.dir("SwiftExport/${target.name}/$configuration")
     val files = outputs.map { it.dir("files") }
     val serializedModules = outputs.map { it.dir("modules").file("${swiftApiModuleName.get()}.json") }
-    val exportConfigurationProvider = provider { LazyResolvedConfigurationWithArtifacts(exportConfiguration) }
-    val apiConfigurationProvider = provider { apiConfiguration?.let(::LazyResolvedConfigurationWithArtifacts) }
+    val modulesInput = provider {
+        val overrides = moduleOverrides.get()
+        SwiftExportModulesInput(
+            exportConfiguration = LazyResolvedConfigurationWithArtifacts(exportConfiguration),
+            apiConfiguration = apiConfiguration?.let(::LazyResolvedConfigurationWithArtifacts),
+            legacyExportedModules = exportedModules.get(),
+            metadataSources = listOf(
+                ConsumerOverridesMetadataSource(overrides),
+                // KT-87987 appends its producer metadata source here.
+            ),
+            overrideSelectors = overrides.keys,
+            rootModuleName = swiftApiModuleName.get(),
+        )
+    }
 
     return locateOrRegisterTask<SwiftExportTask>(swiftExportTaskName) { task ->
         task.description = "Run $taskNamePrefix Swift Export process"
@@ -194,13 +211,7 @@ private fun Project.registerSwiftExportRun(
         task.parameters.konanTarget.set(target.konanTarget)
         task.parameters.bridgeModuleName.set("SharedBridge")
         task.parameters.swiftExportSettings.set(customSetting)
-        task.parameters.swiftModules.set(
-            collectModules(
-                exportConfigurationProvider,
-                apiConfigurationProvider,
-                exportedModules
-            )
-        )
+        task.parameters.swiftModules.set(collectModules(modulesInput))
 
         task.ignoreExperimentalDiagnostic.set(kotlinPropertiesProvider.swiftExportIgnoreExperimental)
         task.mainModuleInput.moduleName.set(swiftApiModuleName)

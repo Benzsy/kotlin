@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.gradle.swiftexport.ExperimentalSwiftExportDsl
 import org.jetbrains.kotlin.gradle.unitTests.utils.applyEmbedAndSignEnvironment
 import org.jetbrains.kotlin.gradle.util.*
 import org.jetbrains.kotlin.gradle.util.EMBED_SWIFT_EXPORT_TASK_NAME
+import org.jetbrains.kotlin.gradle.util.assertNoDiagnostics
 import org.jetbrains.kotlin.gradle.util.buildProjectWithMPP
 import org.jetbrains.kotlin.gradle.util.exportDslProject
 import org.jetbrains.kotlin.gradle.util.exportExtension
@@ -810,6 +811,259 @@ class ExportExtensionSwiftExportTests {
             actualModules.toModulesForAssertion(),
         )
     }
+
+    @Test
+    fun `override renames a direct external api dependency`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    api("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                }
+            },
+            swiftExport = {
+                xcodeIntegration {
+                    configure("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0") {
+                        moduleName.set("ByteString")
+                    }
+                }
+            }
+        )
+
+        project.evaluate()
+
+        val swiftExportTask = project.tasks.withType(SwiftExportTask::class.java).single()
+        val actualModules = swiftExportTask.parameters.swiftModules.getOrElse(emptyList())
+
+        assertSetsEqual(
+            setOf(
+                ExportedSwiftModuleForAssertion(
+                    moduleName = "ByteString",
+                    artifactName = "kotlinx-io-bytestring-iosSimulatorArm64Main-0.7.0.klib",
+                    shouldBeFullyExported = true,
+                ),
+            ),
+            actualModules.toModulesForAssertion(),
+        )
+    }
+
+    @Test
+    fun `override sets the root package of a direct external api dependency`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    api("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                }
+            },
+            swiftExport = {
+                xcodeIntegration {
+                    configure("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0") {
+                        rootPackage.set("kotlinx.io.bytestring")
+                    }
+                }
+            }
+        )
+
+        project.evaluate()
+
+        val swiftExportTask = project.tasks.withType(SwiftExportTask::class.java).single()
+        val actualModules = swiftExportTask.parameters.swiftModules.getOrElse(emptyList())
+
+        assertSetsEqual(
+            setOf(
+                ExportedSwiftModuleForAssertion(
+                    moduleName = "OrgJetbrainsKotlinxKotlinxIoBytestring",
+                    artifactName = "kotlinx-io-bytestring-iosSimulatorArm64Main-0.7.0.klib",
+                    shouldBeFullyExported = true,
+                    flattenPackage = "kotlinx.io.bytestring",
+                ),
+            ),
+            actualModules.toModulesForAssertion(),
+        )
+    }
+
+    @Test
+    fun `override applies even when resolution selected a different version`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    api("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                }
+            },
+            swiftExport = {
+                xcodeIntegration {
+                    // A version the graph does not contain: matching ignores the version.
+                    configure("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.1.0") {
+                        moduleName.set("ByteString")
+                    }
+                }
+            }
+        )
+
+        project.evaluate()
+
+        val swiftExportTask = project.tasks.withType(SwiftExportTask::class.java).single()
+        val actualModules = swiftExportTask.parameters.swiftModules.getOrElse(emptyList())
+
+        assertSetsEqual(
+            setOf(
+                ExportedSwiftModuleForAssertion(
+                    moduleName = "ByteString",
+                    artifactName = "kotlinx-io-bytestring-iosSimulatorArm64Main-0.7.0.klib",
+                    shouldBeFullyExported = true,
+                ),
+            ),
+            actualModules.toModulesForAssertion(),
+        )
+    }
+
+    @Test
+    fun `override through a dependency provider renames the module`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    api("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                }
+            }
+        )
+        // Exercises the Provider<*> branch, which is the same branch a version catalog accessor
+        // (Provider<MinimalExternalModuleDependency>) takes.
+        project.exportExtension.swift {
+            xcodeIntegration {
+                configure(project.provider { project.dependencies.create("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0") }) {
+                    moduleName.set("ByteString")
+                }
+            }
+        }
+
+        project.evaluate()
+
+        val swiftExportTask = project.tasks.withType(SwiftExportTask::class.java).single()
+        val actualModules = swiftExportTask.parameters.swiftModules.getOrElse(emptyList())
+
+        assertSetsEqual(
+            setOf(
+                ExportedSwiftModuleForAssertion(
+                    moduleName = "ByteString",
+                    artifactName = "kotlinx-io-bytestring-iosSimulatorArm64Main-0.7.0.klib",
+                    shouldBeFullyExported = true,
+                ),
+            ),
+            actualModules.toModulesForAssertion(),
+        )
+    }
+
+    @Test
+    fun `override renames a direct project api dependency`() {
+        val project = buildProject(
+            projectBuilder = { withName("shared") },
+            configureProject = { configureRepositoriesForTests() }
+        )
+        val projectDependency = project.subProject("subproject") {
+            iosSimulatorArm64()
+        }
+        project.setupForSwiftExport(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    api(projectDependency)
+                }
+            },
+            swiftExport = {
+                xcodeIntegration {
+                    configure(projectDependency) {
+                        moduleName.set("Renamed")
+                        rootPackage.set("org.example.subproject")
+                    }
+                }
+            }
+        )
+
+        project.evaluate()
+        projectDependency.evaluate()
+
+        val swiftExportTask = project.tasks.withType(SwiftExportTask::class.java).single()
+        val actualModules = swiftExportTask.parameters.swiftModules.getOrElse(emptyList())
+
+        assertSetsEqual(
+            setOf(
+                ExportedSwiftModuleForAssertion(
+                    moduleName = "Renamed",
+                    artifactName = "subproject",
+                    shouldBeFullyExported = true,
+                    flattenPackage = "org.example.subproject",
+                ),
+            ),
+            actualModules.toModulesForAssertion(),
+        )
+    }
+
+    @Test
+    fun `override renames a transitive dependency but its root package is ignored`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    implementation("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                }
+            },
+            swiftExport = {
+                xcodeIntegration {
+                    configure("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0") {
+                        moduleName.set("ByteString")
+                        rootPackage.set("kotlinx.io.bytestring")
+                    }
+                }
+            }
+        )
+
+        project.evaluate()
+
+        val swiftExportTask = project.tasks.withType(SwiftExportTask::class.java).single()
+        val actualModules = swiftExportTask.parameters.swiftModules.getOrElse(emptyList())
+
+        assertSetsEqual(
+            setOf(
+                ExportedSwiftModuleForAssertion(
+                    moduleName = "ByteString",
+                    artifactName = "kotlinx-io-bytestring-iosSimulatorArm64Main-0.7.0.klib",
+                    shouldBeFullyExported = false,
+                    flattenPackage = null,
+                ),
+            ),
+            actualModules.toModulesForAssertion(),
+        )
+    }
+
+    @Test
+    fun `an override with an invalid module name is reported`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    api("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                }
+            },
+            swiftExport = {
+                xcodeIntegration {
+                    configure("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0") {
+                        moduleName.set("not-a-valid-swift-module")
+                    }
+                }
+            }
+        )
+
+        project.evaluate()
+
+        // The diagnostic is reported while the swiftModules provider is realized, not during configuration.
+        project.tasks.withType(SwiftExportTask::class.java).single()
+            .parameters.swiftModules.getOrElse(emptyList())
+
+        project.assertContainsDiagnostic(KotlinToolingDiagnostics.SwiftExportInvalidModuleName)
+    }
 }
 
 private fun swiftExportProject(
@@ -893,9 +1147,10 @@ private fun <T> assertSetsEqual(expected: Set<T>, actual: Set<T>, message: Strin
 
 private fun List<SwiftExportedModule>.toModulesForAssertion() = mapToSetOrEmpty { module ->
     ExportedSwiftModuleForAssertion(
-        module.moduleName,
-        module.artifact.name,
-        module.shouldBeFullyExported
+        moduleName = module.moduleName,
+        artifactName = module.artifact.name,
+        shouldBeFullyExported = module.shouldBeFullyExported,
+        flattenPackage = module.flattenPackage,
     )
 }
 
@@ -903,6 +1158,7 @@ private data class ExportedSwiftModuleForAssertion(
     val moduleName: String,
     val artifactName: String,
     val shouldBeFullyExported: Boolean,
+    val flattenPackage: String? = null,
 )
 
 class LegacySwiftExportDslDiagnosticsTests {

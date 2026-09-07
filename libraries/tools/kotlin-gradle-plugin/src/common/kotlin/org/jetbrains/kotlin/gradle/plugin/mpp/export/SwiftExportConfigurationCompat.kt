@@ -19,6 +19,8 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.SwiftExportExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.internal.SwiftExportedDependency
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.internal.exportedSwiftExportApiConfiguration
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportDependencySelector
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportDeclaredModuleMetadata
 import org.jetbrains.kotlin.gradle.plugin.mpp.internal
 import org.jetbrains.kotlin.gradle.targets.native.resolvableApiConfiguration
 
@@ -55,6 +57,17 @@ internal interface SwiftExportConfigurationCompat {
     val exportedModules: Provider<Set<SwiftExportedDependency>>
 
     /**
+     * Consumer-side metadata overrides for dependencies, keyed by the dependency they select.
+     *
+     * The raw map is exposed rather than a
+     * [org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportModuleMetadataSource], so this layer
+     * stays free of precedence knowledge. Wrapping happens where the source list is assembled.
+     *
+     * Implementations that don't support overrides return an empty map.
+     */
+    val moduleOverrides: Provider<Map<SwiftExportDependencySelector, SwiftExportDeclaredModuleMetadata>>
+
+    /**
      * Configure SwiftExportConfig.settings parameters
      */
     val settings: MapProperty<String, String>
@@ -89,6 +102,12 @@ internal interface SwiftExportConfigurationCompat {
 
                 override val exportedModules: Provider<Set<SwiftExportedDependency>>
                     get() = providers.provider { emptySet() } // TODO: KT-85687
+
+                override val moduleOverrides: Provider<Map<SwiftExportDependencySelector, SwiftExportDeclaredModuleMetadata>>
+                    get() = providers.provider {
+                        configuration.activatedXcodeIntegration?.dependencyOverrides?.orNull ?: emptyMap()
+                    }
+
                 override val settings: MapProperty<String, String>
                     get() = objects.mapProperty(String::class.java, String::class.java) // TODO: KT-87890
                 override val freeCompilerArgs: ListProperty<String>
@@ -121,6 +140,9 @@ internal interface SwiftExportConfigurationCompat {
                             kotlinNativeCompilation.internal.configurations.compileDependencyConfiguration
                         )
                     }
+
+                override val moduleOverrides: Provider<Map<SwiftExportDependencySelector, SwiftExportDeclaredModuleMetadata>>
+                    get() = providers.provider { emptyMap() }
 
                 override val settings: MapProperty<String, String> get() = extension.advancedConfiguration.settings
                 override val freeCompilerArgs: ListProperty<String> get() = extension.advancedConfiguration.freeCompilerArgs
