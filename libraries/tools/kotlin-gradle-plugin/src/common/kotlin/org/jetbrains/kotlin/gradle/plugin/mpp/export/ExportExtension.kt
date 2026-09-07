@@ -10,8 +10,12 @@ import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
+import org.gradle.api.provider.ProviderFactory
 import org.jetbrains.kotlin.gradle.dsl.KotlinGradlePluginDsl
 import org.jetbrains.kotlin.gradle.export.ExperimentalExportDsl
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportDeclaredModuleMetadata
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportDependencySelector
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportDependencySelectorFactory
 import org.jetbrains.kotlin.gradle.swiftexport.ExperimentalSwiftExportDsl
 import javax.inject.Inject
 
@@ -42,10 +46,16 @@ which cannot be suppressed.
 See Gradle issue https://github.com/gradle/gradle/issues/32019
  */
 @KotlinGradlePluginDsl
-abstract class ExportExtension @Inject constructor(
+abstract class ExportExtension @Inject internal constructor(
     objectFactory: ObjectFactory,
+    providerFactory: ProviderFactory,
+    dependencySelectorFactory: SwiftExportDependencySelectorFactory,
 ) {
-    private val defaultSwiftExportConfiguration = DefaultSwiftExportConfiguration(objectFactory)
+    private val defaultSwiftExportConfiguration = DefaultSwiftExportConfiguration(
+        objectFactory = objectFactory,
+        providerFactory = providerFactory,
+        dependencySelectorFactory = dependencySelectorFactory,
+    )
 
     internal val swiftExportConfiguration: SwiftExportConfiguration get() = defaultSwiftExportConfiguration
 
@@ -168,6 +178,40 @@ internal interface SwiftExportXcodeIntegrationConfiguration {
      * The settings passed to Swift Export for this module.
      */
     val settings: Provider<Map<String, String>>
+
+    /**
+     * Consumer overrides declared via [SwiftExportIntegration.configure], keyed by the dependency they select.
+     *
+     * Folded in declaration order, so a later assignment wins independently per property.
+     */
+    val dependencyOverrides: Provider<Map<SwiftExportDependencySelector, SwiftExportDeclaredModuleMetadata>>
+}
+
+/**
+ * An *experimental* plugin DSL to configure the Swift Export metadata of a single exported dependency.
+ *
+ * This DSL is available inside `xcodeIntegration { configure(dependency) { } }`.
+ *
+ * This API is experimental and may change in future versions.
+ */
+@ExperimentalSwiftExportDsl
+@KotlinGradlePluginDsl
+interface SwiftExportedDependencyDsl {
+    /**
+     * The Swift module name to use for this dependency.
+     *
+     * Takes precedence over the name derived from the dependency's coordinates, and over any name the
+     * dependency itself publishes. The value is used verbatim, so it must already be a valid Swift module name.
+     */
+    val moduleName: Property<String>
+
+    /**
+     * The root package to flatten for this dependency.
+     *
+     * Takes precedence over any root package the dependency itself publishes. Has no effect on dependencies
+     * that are only transitively exported.
+     */
+    val rootPackage: Property<String>
 }
 
 /**
@@ -182,6 +226,35 @@ interface SwiftExportIntegration {
      * Configure the settings passed to Swift Export for this module.
      */
     val settings: MapProperty<String, String>
+
+    /**
+     * Override the Swift Export metadata of [dependency].
+     *
+     * [dependency] accepts the notations Gradle's dependency handler accepts: `"group:name:version"`
+     * coordinates, a `project(":path")` dependency, a [org.gradle.api.Project], a version catalog accessor
+     * such as `libs.foo`, or a [Provider] of any of those. The requested version is ignored: the override is
+     * matched against the component the dependency graph actually resolved.
+     *
+     * [dependency] must already be part of the Swift Export graph — this function does not add it. An
+     * override that matches nothing in the graph fails the build.
+     *
+     * A notation that cannot be converted to a dependency (for example, coordinates without a group) is
+     * rejected right here, at the call site. A [Provider] is only realized when the export graph is
+     * assembled, so a notation error inside one surfaces then.
+     *
+     * Repeated calls for the same dependency follow normal Gradle property semantics, so a later assignment
+     * wins, independently per property.
+     *
+     * These overrides apply to this consumer only and are never published.
+     */
+    fun configure(dependency: Any, configure: SwiftExportedDependencyDsl.() -> Unit)
+
+    /**
+     * Override the Swift Export metadata of [dependency].
+     *
+     * @see configure
+     */
+    fun configure(dependency: Any, configure: Action<SwiftExportedDependencyDsl>)
 }
 
 /**
@@ -195,6 +268,8 @@ interface SwiftExportXcodeIntegration : SwiftExportIntegration
 
 private class DefaultSwiftExportConfiguration(
     private val objectFactory: ObjectFactory,
+    private val providerFactory: ProviderFactory,
+    private val dependencySelectorFactory: SwiftExportDependencySelectorFactory,
 ) : SwiftExportConfiguration, SwiftExportConfigurationDsl {
     override val moduleName: Property<String> = objectFactory.property(String::class.java)
     override val rootPackage: Property<String> = objectFactory.property(String::class.java)
@@ -208,7 +283,11 @@ private class DefaultSwiftExportConfiguration(
 
     override fun xcodeIntegration(configure: SwiftExportXcodeIntegration.() -> Unit) {
         val integration = xcodeIntegrationConfiguration
-            ?: DefaultSwiftExportXcodeIntegration(objectFactory).also { xcodeIntegrationConfiguration = it }
+            ?: DefaultSwiftExportXcodeIntegration(
+                objectFactory = objectFactory,
+                providerFactory = providerFactory,
+                dependencySelectorFactory = dependencySelectorFactory,
+            ).also { xcodeIntegrationConfiguration = it }
         integration.configure()
     }
 
@@ -218,9 +297,66 @@ private class DefaultSwiftExportConfiguration(
 }
 
 private class DefaultSwiftExportXcodeIntegration(
-    objectFactory: ObjectFactory,
+    private val objectFactory: ObjectFactory,
+    private val providerFactory: ProviderFactory,
+    private val dependencySelectorFactory: SwiftExportDependencySelectorFactory,
 ) : SwiftExportXcodeIntegration, SwiftExportXcodeIntegrationConfiguration {
+
     override val settings: MapProperty<String, String> = objectFactory.mapProperty(String::class.java, String::class.java)
+
+    /**
+     * One `configure(dependency) { }` call. Each call gets its own DSL object rather than reusing one per
+     * dependency, because the selector for a [Provider] notation is only known once the provider is realized,
+     * and realizing it during configuration would break laziness. Every other notation is converted eagerly,
+     * so a malformed one fails at the `configure` call site with a build script location, instead of later
+     * while the task inputs are fingerprinted. Last-assignment-wins is produced by folding this list in
+     * declaration order in [dependencyOverrides].
+     */
+    private class PendingOverride(
+        val selector: Provider<SwiftExportDependencySelector>,
+        val dsl: DefaultSwiftExportedDependencyDsl,
+    )
+
+    private val pendingOverrides = mutableListOf<PendingOverride>()
+
+    override fun configure(dependency: Any, configure: SwiftExportedDependencyDsl.() -> Unit) {
+        val dsl = DefaultSwiftExportedDependencyDsl(objectFactory)
+        dsl.configure()
+        pendingOverrides += PendingOverride(dependency.selectorProvider(), dsl)
+    }
+
+    override fun configure(dependency: Any, configure: Action<SwiftExportedDependencyDsl>) =
+        configure(dependency) { configure.execute(this) }
+
+    override val dependencyOverrides: Provider<Map<SwiftExportDependencySelector, SwiftExportDeclaredModuleMetadata>> =
+        providerFactory.provider {
+            pendingOverrides.fold(
+                LinkedHashMap()
+            ) { overrides, pending ->
+                val selector = pending.selector.get()
+                val previous = overrides[selector]
+                overrides[selector] = SwiftExportDeclaredModuleMetadata(
+                    moduleName = pending.dsl.moduleName.orNull ?: previous?.moduleName,
+                    rootPackage = pending.dsl.rootPackage.orNull ?: previous?.rootPackage,
+                )
+                overrides
+            }
+        }
+
+    private fun Any.selectorProvider(): Provider<SwiftExportDependencySelector> = when (this) {
+        is Provider<*> -> map { resolved -> dependencySelectorFactory.fromNotation(resolved) }
+        else -> {
+            val selector = dependencySelectorFactory.fromNotation(this)
+            providerFactory.provider { selector }
+        }
+    }
 }
 
-internal fun ObjectFactory.ExportExtension(): ExportExtension = newInstance(ExportExtension::class.java)
+private class DefaultSwiftExportedDependencyDsl(objectFactory: ObjectFactory) : SwiftExportedDependencyDsl {
+    override val moduleName: Property<String> = objectFactory.property(String::class.java)
+    override val rootPackage: Property<String> = objectFactory.property(String::class.java)
+}
+
+internal fun ObjectFactory.ExportExtension(
+    dependencySelectorFactory: SwiftExportDependencySelectorFactory,
+): ExportExtension = newInstance(ExportExtension::class.java, dependencySelectorFactory)

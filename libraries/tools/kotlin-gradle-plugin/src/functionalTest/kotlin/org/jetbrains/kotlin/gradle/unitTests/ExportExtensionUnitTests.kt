@@ -18,6 +18,11 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.EmbedSwiftExportForXcodeTask
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.internal.SwiftExportedModule
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.tasks.SwiftExportTask
 import org.jetbrains.kotlin.gradle.plugin.mpp.export.SwiftExportConfigurationDsl
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportDependencySelector
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportMetadata
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportModuleOverride
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.tasks.SerializeSwiftExportMetadata
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.tasks.locateOrRegisterSwiftExportMetadataTaskAndConsumableConfiguration
 import org.jetbrains.kotlin.gradle.swiftexport.ExperimentalSwiftExportDsl
 import org.jetbrains.kotlin.gradle.unitTests.utils.applyEmbedAndSignEnvironment
 import org.jetbrains.kotlin.gradle.util.*
@@ -115,6 +120,119 @@ class ExportExtensionUnitTests {
 
         assertSame(integration, project.exportExtension.swiftExportConfiguration.activatedXcodeIntegration)
         assertEquals(mapOf("first" to "1", "second" to "2"), integration.settings.get())
+    }
+
+    @Test
+    fun `dependency overrides are readable from the dsl`() {
+        val project = buildProjectWithMPP()
+        project.exportExtension.swift {
+            xcodeIntegration {
+                configure("org.example:foo:1.0") {
+                    moduleName.set("FooBar")
+                    rootPackage.set("org.example.foo")
+                }
+            }
+        }
+
+        val integration = assertNotNull(project.exportExtension.swiftExportConfiguration.activatedXcodeIntegration)
+        assertEquals(
+            mapOf<SwiftExportDependencySelector, SwiftExportModuleOverride>(
+                SwiftExportDependencySelector.Module("org.example", "foo") to
+                        SwiftExportModuleOverride(moduleName = "FooBar", rootPackage = "org.example.foo")
+            ),
+            integration.dependencyOverrides.get(),
+        )
+    }
+
+    @Test
+    fun `repeated configure calls follow normal gradle property semantics`() {
+        val project = buildProjectWithMPP()
+        project.exportExtension.swift {
+            xcodeIntegration {
+                configure("org.example:foo:1.0") {
+                    moduleName.set("First")
+                    rootPackage.set("org.example.first")
+                }
+                configure("org.example:foo:1.0") {
+                    moduleName.set("Second")
+                }
+            }
+        }
+
+        val integration = assertNotNull(project.exportExtension.swiftExportConfiguration.activatedXcodeIntegration)
+        assertEquals(
+            mapOf<SwiftExportDependencySelector, SwiftExportModuleOverride>(
+                SwiftExportDependencySelector.Module("org.example", "foo") to
+                        SwiftExportModuleOverride(moduleName = "Second", rootPackage = "org.example.first")
+            ),
+            integration.dependencyOverrides.get(),
+        )
+    }
+
+    @Test
+    fun `different notations for the same component collapse into one override`() {
+        val project = buildProjectWithMPP()
+        project.exportExtension.swift {
+            xcodeIntegration {
+                configure("org.example:foo:1.0") { moduleName.set("FromCoordinates") }
+                configure(project.provider { project.dependencies.create("org.example:foo:2.5") }) {
+                    rootPackage.set("org.example.foo")
+                }
+            }
+        }
+
+        val integration = assertNotNull(project.exportExtension.swiftExportConfiguration.activatedXcodeIntegration)
+        assertEquals(
+            mapOf<SwiftExportDependencySelector, SwiftExportModuleOverride>(
+                SwiftExportDependencySelector.Module("org.example", "foo") to
+                        SwiftExportModuleOverride(moduleName = "FromCoordinates", rootPackage = "org.example.foo")
+            ),
+            integration.dependencyOverrides.get(),
+        )
+    }
+
+    @Test
+    fun `a project dependency override is keyed by project path`() {
+        val root = buildProjectWithMPP()
+        buildProjectWithMPP(projectBuilder = { withParent(root); withName("sub") })
+        root.exportExtension.swift {
+            xcodeIntegration {
+                configure(root.dependencies.project(mapOf("path" to ":sub"))) { moduleName.set("Sub") }
+            }
+        }
+
+        val integration = assertNotNull(root.exportExtension.swiftExportConfiguration.activatedXcodeIntegration)
+        assertEquals(
+            mapOf<SwiftExportDependencySelector, SwiftExportModuleOverride>(
+                SwiftExportDependencySelector.ProjectPath(":sub") to
+                        SwiftExportModuleOverride(moduleName = "Sub", rootPackage = null)
+            ),
+            integration.dependencyOverrides.get(),
+        )
+    }
+
+    @Test
+    fun `dependency overrides are not published`() {
+        val project = buildProjectWithMPP()
+        project.exportExtension.swift {
+            moduleName.set("Shared")
+            xcodeIntegration {
+                configure("org.example:foo:1.0") {
+                    moduleName.set("FooBar")
+                    rootPackage.set("org.example.foo")
+                }
+            }
+        }
+
+        project.locateOrRegisterSwiftExportMetadataTaskAndConsumableConfiguration(
+            project.exportExtension.swiftExportConfiguration
+        )
+
+        val serializeTask = project.tasks.withType(SerializeSwiftExportMetadata::class.java).single()
+        assertEquals(
+            SwiftExportMetadata(moduleName = "Shared", rootPackage = null),
+            serializeTask.swiftExportMetadata(),
+        )
     }
 }
 
