@@ -475,7 +475,13 @@ open class UpgradeCallableReferences(
                             // If referencedFunction is a fake override, its dispatch receiver type is some supertype of the containing class.
                             // We take the conainting class type instead to prevent a crash in synthetic property lowering.
                             val castType = if (parameter.kind == IrParameterKind.DispatchReceiver) {
-                                referencedFunction.parentAsClass.defaultType
+                                val parentAsClass = referencedFunction.parentAsClass
+                                if (referencedFunction is IrConstructor && parentAsClass.isInner) {
+                                    // The dispatch receiver of an inner class constructor is not the outer class but its outer class.
+                                    parentAsClass.parentAsClass
+                                } else {
+                                    parentAsClass
+                                }.defaultType
                             } else {
                                 parameter.type
                             }
