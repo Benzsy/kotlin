@@ -290,7 +290,12 @@ tasks {
         dependsOn(":kotlin-gradle-plugin-integration-tests:kgpJsTestsGroupedByGradleVersion")
         dependsOn(":kotlin-gradle-plugin-integration-tests:kgpMppTestsGroupedByGradleVersion")
         dependsOn(":kotlin-gradle-plugin-integration-tests:kgpOtherTestsGroupedByGradleVersion")
+    }
 
+
+    // === Build: CheckBuildTest (used only in `configurationCacheSmokeTests`) ==/
+    register("gradlePluginIntegrationMasterTest") {
+        dependsOn(":kotlin-gradle-plugin-integration-tests:check")
     }
 
     testLifecycleTask("gradlePluginIntegrationNightlyTest", QualityGate.Nightly) {
