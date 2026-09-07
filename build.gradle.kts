@@ -481,6 +481,7 @@ tasks {
         dependsOn(":compiler:fastJarFSLongTests")
     }
 
+    // === Build: CheckBuildTest (used only in `configurationCacheSmokeTests`) ===
     val scriptingTest = testLifecycleTask("scriptingJvmTest", QualityGate.Master) {
         dependsOn(":kotlin-scripting-compiler:test")
         dependsOn(":kotlin-scripting-common:test")
@@ -534,6 +535,7 @@ tasks {
         dependsOn(":compiler:jklib.tests:test")
     }
 
+    // === Build: CheckBuildTest (used only in `configurationCacheSmokeTests`) ===
     testLifecycleTask("miscCompilerTest", QualityGate.Master) {
         dependsOn(":compiler:test")
         dependsOn(":compiler:tests-integration:test")
@@ -605,6 +607,7 @@ tasks {
         dependsOn(":analysis:analysisAllTests")
     }
 
+    // === Build: CheckBuildTest (used only in `configurationCacheSmokeTests`) ===
     testLifecycleTask("jps-tests", QualityGate.Master) {
         dependsOn(dist)
         dependsOn(":jps:jps-plugin:test")
