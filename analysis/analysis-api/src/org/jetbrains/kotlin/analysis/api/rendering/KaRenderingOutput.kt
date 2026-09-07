@@ -101,6 +101,19 @@ public fun KaRenderingOutput.append(text: String, vararg attributes: KaTextAttri
 }
 
 /**
+ * Runs [block] with the indentation level increased, balancing [pushIndent] with [popIndent].
+ */
+@KaExperimentalApi
+public inline fun KaRenderingOutput.withIndent(block: () -> Unit) {
+    pushIndent()
+    try {
+        block()
+    } finally {
+        popIndent()
+    }
+}
+
+/**
  * A convenience property allowing to get the [KaRenderingOutput] inside the rendering block without `contextOf<KaRenderingOutput>()`.
  */
 @KaExperimentalApi

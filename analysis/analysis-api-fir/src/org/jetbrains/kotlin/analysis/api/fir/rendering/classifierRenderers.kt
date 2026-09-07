@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.analysis.api.rendering.KaRenderingContext
 import org.jetbrains.kotlin.analysis.api.rendering.keyword
 import org.jetbrains.kotlin.analysis.api.rendering.punctuation
 import org.jetbrains.kotlin.analysis.api.rendering.render
+import org.jetbrains.kotlin.analysis.api.rendering.withIndent
 import org.jetbrains.kotlin.analysis.api.scopes.declaredMemberScope
 import org.jetbrains.kotlin.analysis.api.symbols.KaAnonymousObjectSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
@@ -174,30 +175,32 @@ private object ClassBodyRenderer : KaPieceRenderer<KaClassSymbol>(KaPiece.ClassB
         output.space()
 
         output.group(KaPiece.Symbol) {
-            output.punctuation("{").pushIndent()
+            output.punctuation("{")
 
-            val enumEntries = members.filterIsInstance<KaEnumEntrySymbol>()
-            val otherMembers = members.filter { it !is KaEnumEntrySymbol }
+            output.withIndent {
+                val enumEntries = members.filterIsInstance<KaEnumEntrySymbol>()
+                val otherMembers = members.filter { it !is KaEnumEntrySymbol }
 
-            enumEntries.forEachIndexed { index, entry ->
-                output.newLine()
-                render(entry, KaPiece.Symbol)
-                when {
-                    index < enumEntries.lastIndex -> output.punctuation(",")
-                    otherMembers.isNotEmpty() -> output.punctuation(";")
-                }
-            }
-
-            val extraLineBetweenMembers = context.valueFor(KaRenderingOption.ExtraLineBetweenMembers)
-            otherMembers.forEachIndexed { index, member ->
-                if (extraLineBetweenMembers && (enumEntries.isNotEmpty() || index > 0)) {
+                enumEntries.forEachIndexed { index, entry ->
                     output.newLine()
+                    render(entry, KaPiece.Symbol)
+                    when {
+                        index < enumEntries.lastIndex -> output.punctuation(",")
+                        otherMembers.isNotEmpty() -> output.punctuation(";")
+                    }
                 }
-                output.newLine()
-                render(member, KaPiece.Symbol)
+
+                val extraLineBetweenMembers = context.valueFor(KaRenderingOption.ExtraLineBetweenMembers)
+                otherMembers.forEachIndexed { index, member ->
+                    if (extraLineBetweenMembers && (enumEntries.isNotEmpty() || index > 0)) {
+                        output.newLine()
+                    }
+                    output.newLine()
+                    render(member, KaPiece.Symbol)
+                }
             }
 
-            output.popIndent().newLine()
+            output.newLine()
             output.punctuation("}")
         }
 

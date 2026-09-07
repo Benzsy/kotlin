@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.analysis.api.rendering.pushEmpty
 import org.jetbrains.kotlin.analysis.api.rendering.keyword
 import org.jetbrains.kotlin.analysis.api.rendering.punctuation
 import org.jetbrains.kotlin.analysis.api.rendering.render
+import org.jetbrains.kotlin.analysis.api.rendering.withIndent
 import org.jetbrains.kotlin.analysis.api.symbols.KaBackingFieldSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
@@ -202,10 +203,10 @@ private object PropertyRenderer : KaPieceRenderer<KaPropertySymbol>(KaPiece.Prop
 
         // An explicit backing field is rendered as a declaration of its own, on an indented line below the property.
         value.backingFieldSymbol?.takeIf { it.isNotDefault }?.let { backingField ->
-            output.pushIndent()
-            output.newLine()
-            render(backingField, KaPiece.BackingField)
-            output.popIndent()
+            output.withIndent {
+                output.newLine()
+                render(backingField, KaPiece.BackingField)
+            }
         }
 
         render(value, KaPiece.PropertyAccessors)
@@ -221,10 +222,10 @@ private object PropertyAccessorsRenderer : KaPieceRenderer<KaPropertySymbol>(KaP
         val setter = value.setter?.takeIf { isAccessorRendered(it) }
         if (getter == null && setter == null) return true
 
-        output.pushIndent()
-        getter?.let { output.newLine(); render(it, KaPiece.PropertyAccessor) }
-        setter?.let { output.newLine(); render(it, KaPiece.PropertyAccessor) }
-        output.popIndent()
+        output.withIndent {
+            getter?.let { output.newLine(); render(it, KaPiece.PropertyAccessor) }
+            setter?.let { output.newLine(); render(it, KaPiece.PropertyAccessor) }
+        }
 
         return true
     }
