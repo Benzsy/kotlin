@@ -33,12 +33,41 @@ class BooleanTest {
     }
 
     @Test
-    fun onTrueContract() {
+    fun onTrueInvokeAtMostOnceContract() {
         // will fail to compile without AT_MOST_ONCE
         val value: Int
         true.onTrue {
             value = 1
             assertEquals(1, value)
+        }
+    }
+
+    @Test
+    fun onTrueHoldsInContract() {
+        // will fail to compile without holdsIn
+        val x: Any = "OK"
+        (x is String).onTrue {
+            assertEquals(2, x.length)
+        }
+    }
+
+    @Test
+    fun onTrueReturnsTrueContract() {
+        // will fail to compile without `returns(true)-implies(this)`
+        val x: Any = "OK"
+        val result = (x is String).onTrue { }
+        if (result) {
+            assertEquals(2, x.length)
+        }
+    }
+
+    @Test
+    fun onTrueReturnsFalseContract() {
+        // will fail to compile without `returns(false)-implies(!this)`
+        val x: Any = "OK"
+        val result = (x !is String).onTrue { }
+        if (!result) {
+            assertEquals(2, x.length)
         }
     }
 
@@ -63,12 +92,41 @@ class BooleanTest {
     }
 
     @Test
-    fun onFalseContract() {
+    fun onFalseInvokeAtMostOnceContract() {
         // will fail to compile without AT_MOST_ONCE
         val value: Int
         false.onFalse {
             value = 1
             assertEquals(1, value)
+        }
+    }
+
+    @Test
+    fun onFalseHoldsInContract() {
+        // will fail to compile without holdsIn
+        val x: Any = "OK"
+        (x !is String).onFalse {
+            assertEquals(2, x.length)
+        }
+    }
+
+    @Test
+    fun onFalseReturnsTrueContract() {
+        // will fail to compile without `returns(true)-implies(this)`
+        val x: Any = "OK"
+        val result = (x is String).onFalse { }
+        if (result) {
+            assertEquals(2, x.length)
+        }
+    }
+
+    @Test
+    fun onFalseReturnsFalseContract() {
+        // will fail to compile without `returns(false)-implies(!this)`
+        val x: Any = "OK"
+        val result = (x !is String).onFalse { }
+        if (!result) {
+            assertEquals(2, x.length)
         }
     }
 
@@ -95,7 +153,7 @@ class BooleanTest {
     }
 
     @Test
-    fun ifOrNullContract() {
+    fun ifOrNullInvokeAtMostOnceContract() {
         // will fail to compile without AT_MOST_ONCE
         val value: Int
         val result = ifOrNull(true) {
@@ -104,6 +162,28 @@ class BooleanTest {
             "OK"
         }
         assertEquals("OK", result)
+    }
+
+    @Test
+    fun ifOrNullHoldsInContract() {
+        // will fail to compile without holdsIn
+        val x: Any = "OK"
+        val result = ifOrNull(x is String) {
+            x.length
+        }
+        assertEquals(2, result)
+    }
+
+    @Test
+    fun ifOrNullReturnsNotNullContract() {
+        // will fail to compile without `returnsNotNull-implies(condition)`
+        val x: Any = "OK"
+        val result = ifOrNull(x is String) {
+            x.length
+        }
+        if (result != null) {
+            assertEquals(x.length, result)
+        }
     }
 }
 

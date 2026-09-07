@@ -3,6 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:OptIn(ExperimentalExtendedContracts::class)
 package kotlin
 
 import kotlin.contracts.*
@@ -55,6 +56,9 @@ import kotlin.internal.InlineOnly
 public inline fun Boolean.onTrue(action: () -> Unit): Boolean {
     contract {
         callsInPlace(action, InvocationKind.AT_MOST_ONCE)
+        this@onTrue holdsIn action
+        returns(true) implies this@onTrue
+        returns(false) implies !this@onTrue
     }
     return if (this) {
         action()
@@ -116,6 +120,9 @@ public inline fun Boolean.onTrue(action: () -> Unit): Boolean {
 public inline fun Boolean.onFalse(action: () -> Unit): Boolean {
     contract {
         callsInPlace(action, InvocationKind.AT_MOST_ONCE)
+        (!this@onFalse) holdsIn action
+        returns(true) implies this@onFalse
+        returns(false) implies !this@onFalse
     }
     return if (this) {
         true
@@ -147,6 +154,8 @@ public inline fun Boolean.onFalse(action: () -> Unit): Boolean {
 public inline fun <T> ifOrNull(condition: Boolean, block: () -> T): T? {
     contract {
         callsInPlace(block, InvocationKind.AT_MOST_ONCE)
+        condition holdsIn block
+        returnsNotNull() implies condition
     }
     return if (condition) {
         block()
