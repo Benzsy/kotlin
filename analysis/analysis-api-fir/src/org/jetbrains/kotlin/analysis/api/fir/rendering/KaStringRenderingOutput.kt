@@ -43,13 +43,6 @@ internal class KaStringRenderingOutput(private val indentationUnit: String) : Ka
         return this
     }
 
-    override fun group(children: KaPiece<*>, block: () -> Unit) {
-        block()
-    }
-
-    override fun enter(piece: KaPiece<*>) {}
-    override fun leave(piece: KaPiece<*>) {}
-
     override fun newLine(): KaRenderingOutput {
         // Avoid trailing whitespace at the end of the line.
         while (builder.isNotEmpty() && builder.last() == ' ') {
