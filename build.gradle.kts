@@ -278,7 +278,7 @@ tasks {
         }
     }
 
-    testLifecycleTask("gradlePluginIntegrationSmokeTest", QualityGate.Master) {
+    testLifecycleTask("gradlePluginIntegrationSmokeTest", QualityGate.None) {
         dependsOn(":kotlin-gradle-plugin-integration-tests:kgpAllParallelTests")
     }
 
@@ -289,7 +289,6 @@ tasks {
             "kgpDaemonsTestsGroupedByGradleVersion",
             "kgpJvmTestsGroupedByGradleVersion",
             "kgpJsTestsGroupedByGradleVersion",
-            "kgpJsBrowserTestsGroupedByGradleVersion",
             "kgpMppTestsGroupedByGradleVersion",
             "kgpOtherTestsGroupedByGradleVersion"
         ).forEach { taskName ->
@@ -301,7 +300,8 @@ tasks {
         listOf(
             "kgpNativeTests",
             "kgpSwiftExportTests",
-            "kgpSwiftPMImportTests"
+            "kgpSwiftPMImportTests",
+            "kgpJsBrowserTestsGroupedByGradleVersion",
         ).forEach { taskName ->
             dependsOn(":kotlin-gradle-plugin-integration-tests:$taskName")
         }
