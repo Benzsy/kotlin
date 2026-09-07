@@ -3,6 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+import TestLifecycleTask.QualityGate
 import org.gradle.api.Action
 import org.gradle.api.DefaultTask
 import org.gradle.api.Task
@@ -23,10 +24,21 @@ fun Task.dependsOnAll(task: String, projects: List<String>) {
 /**
  * Registers a task that does not execute any tests by itself, but depends on other test tasks.
  * IntelliJ IDEA will recognize it as a test task and show the test execution UI.
+ *
+ * @param qualityGate The expected [QualityGate] of this task.
+ * e.g. Use [QualityGate.Master] if the test task is expected to execute before merging to master
+ * Use [QualityGate.Nightly] if the test task is expected to only be executed nightly
+ * Use [QualityGate.None] if the test task is not expected to participate in any quality gate (yet)
+ * Use [QualityGate.Undefined] to transition a task in or out of a given quality gate (to allow the TeamCity configuration to catch up)
  */
-fun TaskContainer.testLifecycleTask(name: String, action: Action<TestLifecycleTask>): TaskProvider<TestLifecycleTask> {
+fun TaskContainer.testLifecycleTask(
+    name: String,
+    qualityGate: QualityGate,
+    action: Action<TestLifecycleTask>,
+): TaskProvider<TestLifecycleTask> {
     return register(name, TestLifecycleTask::class.java) {
         extensions.extraProperties["idea.internal.test"] = "true"
+        this.qualityGate.set(qualityGate)
         action.execute(this)
     }
 }

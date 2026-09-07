@@ -72,6 +72,7 @@ class TestLifecycleTaskTest {
      * is in sync with the definition within kotlin.git (provided by the dump)
      */
     @EnabledIfSystemProperty(named = "teamcity", matches = "true")
+    @EnabledIfSystemProperty(named = "quality.gate.master.tasks", matches = ".+") // Remove after a 'phase-in' period of this test
     @Test
     fun `quality gates are in sync with TeamCity`() {
         /*
@@ -139,8 +140,7 @@ class TestLifecycleTaskTest {
 
                         `build.gradle.kts`
                         ```
-                          testLifecycleTask("${lifecycleTask.path.removePrefix(":")}") {
-                              qualityGate = QualityGate.$actualQualityGate
+                          testLifecycleTask("${lifecycleTask.path.removePrefix(":")}", QualityGate.$actualQualityGate) {
                           }
                         ```
                     """.trimIndent().prependIndent("    ")

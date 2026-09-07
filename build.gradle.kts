@@ -260,8 +260,7 @@ tasks {
         dependsOnAll("publish", coreLibsPublishable)
     }
 
-    val coreLibsTest = testLifecycleTask("coreLibsTest") {
-        qualityGate = QualityGate.Master
+    val coreLibsTest = testLifecycleTask("coreLibsTest", QualityGate.Master) {
         dependsOnAll(
             task = "check",
             projects = coreLibsBuildable + listOf(
@@ -273,20 +272,17 @@ tasks {
         )
     }
 
-    testLifecycleTask("gradlePluginTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("gradlePluginTest", QualityGate.Master) {
         gradlePluginProjects.forEach {
             dependsOn("$it:check")
         }
     }
 
-    testLifecycleTask("gradlePluginIntegrationSmokeTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("gradlePluginIntegrationSmokeTest", QualityGate.Master) {
         dependsOn(":kotlin-gradle-plugin-integration-tests:kgpAllParallelTests")
     }
 
-    testLifecycleTask("gradlePluginIntegrationMasterTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("gradlePluginIntegrationMasterTest", QualityGate.Master) {
         listOf(
             "kgpNativeTestsGroupedByGradleVersion",
             "kgpAndroidTestsGroupedByGradleVersion",
@@ -301,8 +297,7 @@ tasks {
         }
     }
 
-    testLifecycleTask("gradlePluginIntegrationNightlyTest") {
-        qualityGate = QualityGate.Nightly
+    testLifecycleTask("gradlePluginIntegrationNightlyTest", QualityGate.Nightly) {
         listOf(
             "kgpNativeTests",
             "kgpSwiftExportTests",
@@ -312,26 +307,22 @@ tasks {
         }
     }
 
-    testLifecycleTask("jvmCompilerTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("jvmCompilerTest", QualityGate.Master) {
         dependsOn(":compiler:tests-common-new:test")
         dependsOn(":compiler:container:test")
         dependsOn(":compiler:tests-java8:test")
         dependsOn(":compiler:tests-spec:test")
     }
 
-    testLifecycleTask("jvmCodegenTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("jvmCodegenTest", QualityGate.Master) {
         dependsOn(":compiler:fir:fir2ir:aggregateTests")
     }
 
-    testLifecycleTask("testsForBootstrapBuildTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("testsForBootstrapBuildTest", QualityGate.Master) {
         dependsOn(":compiler:tests-common-new:test")
     }
 
-    val jvmCompilerIntegrationTest = testLifecycleTask("jvmCompilerIntegrationTest") {
-        qualityGate = QualityGate.Master
+    val jvmCompilerIntegrationTest = testLifecycleTask("jvmCompilerIntegrationTest", QualityGate.Master) {
         dependsOn(
             ":kotlin-compiler-embeddable:test",
             ":kotlin-compiler-client-embeddable:test"
@@ -339,26 +330,22 @@ tasks {
     }
 
     // === Used by Native Image builds (in a separate TC project) ===
-    testLifecycleTask("nativeImageCompilerTest") {
-        qualityGate = QualityGate.None
+    testLifecycleTask("nativeImageCompilerTest", QualityGate.None) {
         dependsOn(":kotlin-compiler-native-image:nativeImageBoxTest")
         dependsOn(":kotlin-compiler-native-image:nativeImageSmokeTest")
     }
 
-    testLifecycleTask("jsCompilerTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("jsCompilerTest", QualityGate.Master) {
         dependsOn(":js:js.tests:jsTest")
         dependsOn(":js:js.parser:test")
         dependsOn(":compiler:ir.serialization.js:test")
     }
 
-    testLifecycleTask("jsKlibCompatibilityTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("jsKlibCompatibilityTest", QualityGate.Master) {
         dependsOn(":js:js.tests:klib-compatibility:testMinimalInAggregate")
     }
 
-    testLifecycleTask("wasmFirCompilerTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("wasmFirCompilerTest", QualityGate.Master) {
         dependsOn(":wasm:wasm.tests:test")
         // Windows WABT release requires Visual C++ Redistributable
         if (!kotlinBuildProperties.isTeamcityBuild.get() || !org.gradle.internal.os.OperatingSystem.current().isWindows) {
@@ -366,58 +353,47 @@ tasks {
         }
     }
 
-    testLifecycleTask("wasmJsBoxTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("wasmJsBoxTest", QualityGate.Master) {
         dependsOn(":wasm:wasm.tests:wasmJsBoxTest")
     }
 
-    testLifecycleTask("wasmJsSplittingTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("wasmJsSplittingTest", QualityGate.Master) {
         dependsOn(":wasm:wasm.tests:wasmJsSplittingTest")
     }
 
-    testLifecycleTask("wasmJsMultiModuleTest") {
-        qualityGate = QualityGate.Nightly
+    testLifecycleTask("wasmJsMultiModuleTest", QualityGate.Nightly) {
         dependsOn(":wasm:wasm.tests:wasmJsMultiModuleTest")
     }
 
-    testLifecycleTask("wasmWasiBoxTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("wasmWasiBoxTest", QualityGate.Master) {
         dependsOn(":wasm:wasm.tests:wasmWasiBoxTest")
     }
 
-    testLifecycleTask("wasmIcTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("wasmIcTest", QualityGate.Master) {
         dependsOn(":wasm:wasm.tests:wasmIcTest")
     }
 
-    testLifecycleTask("wasmMiscTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("wasmMiscTest", QualityGate.Master) {
         dependsOn(":wasm:wasm.tests:wasmMiscTest")
     }
 
-    testLifecycleTask("wasmFirCompilerExtraTest") {
-        qualityGate = QualityGate.Nightly
+    testLifecycleTask("wasmFirCompilerExtraTest", QualityGate.Nightly) {
         dependsOn(":wasm:wasm.tests:wasmFirCompilerExtraTest")
     }
 
-    testLifecycleTask("wasmKlibCompatibilityTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("wasmKlibCompatibilityTest", QualityGate.Master) {
         dependsOn(":wasm:wasm.tests:klib-compatibility:testMinimalInAggregate")
     }
 
-    testLifecycleTask("commonBackendTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("commonBackendTest", QualityGate.Master) {
         dependsOn(":compiler:ir.backend.common:test")
     }
 
-    testLifecycleTask("codegenTarget8Jvm11Test") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("codegenTarget8Jvm11Test", QualityGate.Master) {
         dependsOn(":compiler:tests-different-jdk:codegenTarget8Jvm11Test")
     }
 
-    testLifecycleTask("androidCodegenTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("androidCodegenTest", QualityGate.Master) {
         dependsOn(":compiler:android-tests:test")
     }
 
@@ -426,8 +402,7 @@ tasks {
     // - different cache policies
     // - different GCs
     // ...
-    testLifecycleTask("nativeCompilerTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("nativeCompilerTest", QualityGate.Master) {
         dependsOn(":compiler:ir.serialization.native:test")
         dependsOn(":kotlin-atomicfu-compiler-plugin:nativeTest")
         dependsOn(":plugins:plugin-sandbox:nativeTest")
@@ -441,10 +416,14 @@ tasks {
         dependsOn(":native:native.tests:litmus-tests:check")
     }
 
+    testLifecycleTask("nativeCompilerTestXCTestEnabled", QualityGate.Master) {
+        dependsOn(":native:native.tests:test")
+        dependsOn(":native:native.tests:codegen-box:test")
+    }
+
     // Similar to nativeCompilerTest, but should be executed only on macOS host as these tests
     // technically or semantically depend on Xcode SDK.
-    testLifecycleTask("nativeAppleSpecificTests") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("nativeAppleSpecificTests", QualityGate.Master) {
         dependsOn(":native:objcexport-header-generator:check")
         dependsOn(":native:swift:swift-export-embeddable:check")
         dependsOn(":native:swift:swift-export-standalone:check")
@@ -452,14 +431,12 @@ tasks {
         dependsOn(":native:swift:sir-light-classes:check")
     }
 
-    testLifecycleTask("swiftExportTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("swiftExportTest", QualityGate.Master) {
         dependsOn("native:swift:sirAllTests")
     }
 
     // These are unit tests of Native compiler
-    testLifecycleTask("nativeCompilerUnitTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("nativeCompilerUnitTest", QualityGate.Master) {
         dependsOn(":native:kotlin-native-utils:check")
         dependsOn(":native:unsafe-mem:check")
         if (kotlinBuildProperties.isKotlinNativeEnabled.get()) {
@@ -475,43 +452,36 @@ tasks {
         }
     }
 
-    testLifecycleTask("nativeHostRuntimeTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("nativeHostRuntimeTest", QualityGate.Master) {
         dependsOn(":kotlin-native:runtime:hostRuntimeTests")
     }
 
-    testLifecycleTask("nativeKlibCompatibilityTest_firstStage") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("nativeKlibCompatibilityTest_firstStage", QualityGate.Master) {
         dependsOn(":native:native.tests:klib-compatibility:testMinimalInAggregate_firstStage")
     }
 
-    testLifecycleTask("nativeKlibCompatibilityTest_secondStage") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("nativeKlibCompatibilityTest_secondStage", QualityGate.Master) {
         dependsOn(":native:native.tests:klib-compatibility:testMinimalInAggregate_secondStage")
     }
 
-    testLifecycleTask("klibIrTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("klibIrTest", QualityGate.Master) {
         dependsOn(":tools:binary-compatibility-validator:check")
         dependsOn(":native:native.tests:klib-ir-inliner:check")
     }
 
-    testLifecycleTask("compilerFrontendTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("compilerFrontendTest", QualityGate.Master) {
         dependsOn(":compiler:fir:raw-fir:psi2fir:test")
         dependsOn(":compiler:fir:raw-fir:light-tree2fir:test")
         dependsOn(":compiler:fir:analysis-tests:test")
         dependsOn(":compiler:fir:analysis-tests:legacy-fir-tests:test")
     }
 
-    testLifecycleTask("nightlyFirCompilerTest") {
-        qualityGate = QualityGate.Nightly
+    testLifecycleTask("nightlyFirCompilerTest", QualityGate.Nightly) {
         dependsOn(":compiler:fir:fir2ir:nightlyTests")
         dependsOn(":compiler:fastJarFSLongTests")
     }
 
-    val scriptingTest = testLifecycleTask("scriptingJvmTest") {
-        qualityGate = QualityGate.Master
+    val scriptingTest = testLifecycleTask("scriptingJvmTest", QualityGate.Master) {
         dependsOn(":kotlin-scripting-compiler:test")
         dependsOn(":kotlin-scripting-common:test")
         dependsOn(":kotlin-scripting-jvm:test")
@@ -526,14 +496,12 @@ tasks {
         dependsOn(":kotlin-scripting-jsr223-test:test")
     }
 
-    val incrementalCompilationTest = testLifecycleTask("incrementalCompilationTest") {
-        qualityGate = QualityGate.Master
+    val incrementalCompilationTest = testLifecycleTask("incrementalCompilationTest", QualityGate.Master) {
         dependsOn(":compiler:incremental-compilation-impl:test")
         dependsOn(":compiler:incremental-compilation-impl:testJvmICWithJdk11")
     }
 
-    val compilerPluginTest = testLifecycleTask("compilerPluginTest") {
-        qualityGate = QualityGate.Master
+    val compilerPluginTest = testLifecycleTask("compilerPluginTest", QualityGate.Master) {
         dependsOn(":kotlin-allopen-compiler-plugin:test")
         dependsOn(":kotlin-assignment-compiler-plugin:test")
         dependsOn(":kotlin-atomicfu-compiler-plugin:test")
@@ -551,8 +519,7 @@ tasks {
         dependsOn(scriptingTest)
     }
 
-    testLifecycleTask("composePluginTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("composePluginTest", QualityGate.Master) {
         dependsOn(":plugins:compose-compiler-plugin:test")
         dependsOn(":plugins:compose-compiler-plugin:compiler:test")
         dependsOn(":plugins:compose-compiler-plugin:group-mapping:test")
@@ -563,13 +530,11 @@ tasks {
         dependsOn(":plugins:compose-compiler-plugin:compiler-hosted:integration-tests:test")
     }
 
-    testLifecycleTask("jklibTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("jklibTest", QualityGate.Master) {
         dependsOn(":compiler:jklib.tests:test")
     }
 
-    testLifecycleTask("miscCompilerTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("miscCompilerTest", QualityGate.Master) {
         dependsOn(":compiler:test")
         dependsOn(":compiler:tests-integration:test")
         dependsOn(":compiler:java-direct:test")
@@ -590,8 +555,7 @@ tasks {
         dependsOn(":core:language.version-settings:test")
     }
 
-    val toolsTest = testLifecycleTask("toolsTest") {
-        qualityGate = QualityGate.Master
+    val toolsTest = testLifecycleTask("toolsTest", QualityGate.Master) {
         dependsOn(":tools:kotlinp-jvm:test")
         dependsOn(":native:kotlin-klib-commonizer:test")
         dependsOn(":native:kotlin-klib-commonizer-api:test")
@@ -605,16 +569,14 @@ tasks {
         dependsOn(":libraries:tools:abi-validation:abi-tools-tests:check")
     }
 
-    val examplesTest = testLifecycleTask("examplesTest") {
-        qualityGate = QualityGate.Master
+    val examplesTest = testLifecycleTask("examplesTest", QualityGate.Master) {
         dependsOn(dist)
         project(":examples").subprojects.forEach { p ->
             dependsOn("${p.path}:check")
         }
     }
 
-    testLifecycleTask("miscTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("miscTest", QualityGate.Master) {
         dependsOn(coreLibsTest)
         dependsOn(toolsTest)
         dependsOn(examplesTest)
@@ -629,54 +591,50 @@ tasks {
         dependsOn(":kotlin-gradle-plugin-dsl-codegen:test")
     }
 
-    testLifecycleTask("buildToolsApiTest") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("buildToolsApiTest", QualityGate.Master) {
         dependsOn(":compiler:build-tools:kotlin-build-tools-api:check")
         dependsOn(":compiler:build-tools:kotlin-build-tools-api-tests:check")
         dependsOn(":compiler:build-tools:kotlin-build-tools-api-forward-tests:check")
     }
 
-    testLifecycleTask("frontendApiTests") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("buildToolsApiKotlinVersionCheck", QualityGate.None) {
+        dependsOn(":compiler:build-tools:kotlin-build-tools-api-tests:checkCompatibilityCoverage")
+    }
+
+    testLifecycleTask("frontendApiTests", QualityGate.Master) {
         dependsOn(":analysis:analysisAllTests")
     }
 
-    testLifecycleTask("jps-tests") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("jps-tests", QualityGate.Master) {
         dependsOn(dist)
         dependsOn(":jps:jps-plugin:test")
     }
 
-    testLifecycleTask("kaptTests") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("kaptTests", QualityGate.Master) {
         dependsOn(":kotlin-annotation-processing:test")
         dependsOn(":kotlin-annotation-processing:testJdk11")
         dependsOn(":kotlin-annotation-processing-base:test")
         dependsOn(":kotlin-annotation-processing-cli:test")
     }
 
-    testLifecycleTask("parcelizeTests") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("parcelizeTests", QualityGate.Master) {
         dependsOn(":plugins:parcelize:parcelize-compiler:test")
     }
 
-    testLifecycleTask("codebaseTests") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("codebaseTests", QualityGate.Master) {
         dependsOn(":repo:auto-code-review:test")
         dependsOn(":repo:codebase-tests:test")
     }
 
-    testLifecycleTask("artifactsTest") {
+    testLifecycleTask("artifactsTest", QualityGate.Master) {
         dependsOn(":repo:artifacts-tests:test")
     }
 
-    testLifecycleTask("statisticsTests") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("statisticsTests", QualityGate.Master) {
         dependsOn(":kotlin-gradle-statistics:test")
     }
 
-    testLifecycleTask("validateIdePluginDependencies") {
-        qualityGate = QualityGate.Master
+    testLifecycleTask("validateIdePluginDependencies", QualityGate.Master) {
         dependsOn(":tools:ide-plugin-dependencies-validator:checkIdeDependenciesConfiguration")
     }
 
