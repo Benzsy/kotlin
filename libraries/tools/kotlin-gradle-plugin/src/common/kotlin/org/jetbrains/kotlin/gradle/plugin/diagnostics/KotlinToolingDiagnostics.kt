@@ -1925,7 +1925,11 @@ internal object KotlinToolingDiagnostics {
     }
 
     object SwiftExportInvalidModuleName : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
-        operator fun invoke(moduleName: String) = build {
+        /**
+         * @param severity overrides the predefined ERROR for names that are only validated once the export graph
+         * is assembled, after `checkKotlinGradlePluginConfigurationErrors` has run, where ERROR would only be logged
+         */
+        operator fun invoke(moduleName: String, severity: KotlinToolingDiagnosticsSeverity? = null) = build(severity = severity) {
             title("Invalid Swift Module Name")
                 .description {
                     "The Swift module name '$moduleName' is invalid"
@@ -1937,14 +1941,10 @@ internal object KotlinToolingDiagnostics {
     }
 
     object SwiftExportModuleResolutionError : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
-        /**
-         * @param modules the modules that were requested but not found, rendered for the user
-         * @param dsl the DSL snippet the request came from, so the message points at the right place
-         */
-        operator fun invoke(modules: List<String>, dsl: String) = build {
+        operator fun invoke(modules: List<String>) = build {
             title("Swift Module Resolution Error")
                 .description {
-                    "The following modules specified in $dsl were not found in the resolved components: ${
+                    "The following modules specified in swiftExport { export() } were not found in the resolved components: ${
                         modules.joinToString(
                             ", "
                         )
@@ -1952,6 +1952,66 @@ internal object KotlinToolingDiagnostics {
                 }
                 .solution {
                     "Please check the module name and ensure it is correct."
+                }
+        }
+    }
+
+    /**
+     * FATAL rather than ERROR: this is only known once the export graph is assembled, which happens after
+     * `checkKotlinGradlePluginConfigurationErrors` has run, so an ERROR would be logged but never fail the build.
+     */
+    object SwiftExportDependencyOverrideNotApplied : ToolingDiagnosticFactory(FATAL, DiagnosticGroup.Kgp.Misconfiguration) {
+        private const val DSL = "export { swift { xcodeIntegration { configure(dependency) { } } } }"
+
+        /**
+         * @param absent overrides whose dependency is not in the resolved dependency graph at all
+         * @param notExported overrides whose dependency is in the graph but is not a Kotlin library, so it is never
+         * exported to Swift and the override has nothing to apply to
+         */
+        operator fun invoke(absent: List<String>, notExported: List<String>) = build {
+            title("Swift Export Dependency Override Not Applied")
+                .description {
+                    listOfNotNull(
+                        absent.takeIf { it.isNotEmpty() }?.let {
+                            "The following dependencies configured in $DSL were not found in the resolved " +
+                                    "dependency graph: ${it.joinToString(", ")}"
+                        },
+                        notExported.takeIf { it.isNotEmpty() }?.let {
+                            "The following dependencies configured in $DSL are in the dependency graph but are not " +
+                                    "exported to Swift, because only Kotlin libraries are (JVM jars and cinterop " +
+                                    "klibs are not): ${it.joinToString(", ")}"
+                        },
+                    ).joinToString("\n")
+                }
+                .solution {
+                    "Check the dependency's coordinates or project path, and make sure it is declared as a " +
+                            "dependency of the exported module. Remove the override if the dependency is not exported."
+                }
+        }
+    }
+
+    /**
+     * FATAL rather than ERROR: the final names are only known once the export graph is assembled, which happens
+     * after `checkKotlinGradlePluginConfigurationErrors` has run, so an ERROR would be logged but never fail the
+     * build, and the Swift Export tool would be handed two same-named modules.
+     */
+    object SwiftExportDuplicateModuleNames : ToolingDiagnosticFactory(FATAL, DiagnosticGroup.Kgp.Misconfiguration) {
+        /**
+         * @param duplicates final Swift module name to the components that produced it
+         */
+        operator fun invoke(duplicates: Map<String, List<String>>) = build {
+            title("Duplicate Swift Module Names")
+                .description {
+                    "The following Swift module names are produced by more than one module:\n" +
+                            duplicates.entries.joinToString("\n") { (moduleName, owners) ->
+                                "  '$moduleName': ${owners.joinToString(", ")}"
+                            }
+                }
+                .solution {
+                    "Give each module a distinct name with " +
+                            "export { swift { xcodeIntegration { configure(dependency) { moduleName = \"...\" } } } }. " +
+                            "If the collision is with the root module's own name, rename the root module instead with " +
+                            "export { swift { moduleName = \"...\" } }."
                 }
         }
     }

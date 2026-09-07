@@ -7,6 +7,8 @@
 
 package org.jetbrains.kotlin.gradle.unitTests
 
+import org.gradle.api.InvalidUserCodeException
+import org.gradle.api.InvalidUserDataException
 import org.gradle.api.Project
 import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.testfixtures.ProjectBuilder
@@ -14,13 +16,14 @@ import org.jetbrains.kotlin.gradle.dependencyResolutionTests.configureRepositori
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.export.ExperimentalExportDsl
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.ToolingDiagnosticFactory
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.EmbedSwiftExportForXcodeTask
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.internal.SwiftExportedModule
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.tasks.SwiftExportTask
 import org.jetbrains.kotlin.gradle.plugin.mpp.export.SwiftExportConfigurationDsl
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportDeclaredModuleMetadata
 import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportDependencySelector
 import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportMetadata
-import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportModuleOverride
 import org.jetbrains.kotlin.gradle.plugin.mpp.export.tasks.SerializeSwiftExportMetadata
 import org.jetbrains.kotlin.gradle.plugin.mpp.export.tasks.locateOrRegisterSwiftExportMetadataTaskAndConsumableConfiguration
 import org.jetbrains.kotlin.gradle.swiftexport.ExperimentalSwiftExportDsl
@@ -38,6 +41,9 @@ import org.junit.jupiter.api.Assumptions
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFails
+import kotlin.test.assertFailsWith
+import kotlin.test.fail
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
@@ -136,9 +142,9 @@ class ExportExtensionUnitTests {
 
         val integration = assertNotNull(project.exportExtension.swiftExportConfiguration.activatedXcodeIntegration)
         assertEquals(
-            mapOf<SwiftExportDependencySelector, SwiftExportModuleOverride>(
+            mapOf<SwiftExportDependencySelector, SwiftExportDeclaredModuleMetadata>(
                 SwiftExportDependencySelector.Module("org.example", "foo") to
-                        SwiftExportModuleOverride(moduleName = "FooBar", rootPackage = "org.example.foo")
+                        SwiftExportDeclaredModuleMetadata(moduleName = "FooBar", rootPackage = "org.example.foo")
             ),
             integration.dependencyOverrides.get(),
         )
@@ -161,9 +167,9 @@ class ExportExtensionUnitTests {
 
         val integration = assertNotNull(project.exportExtension.swiftExportConfiguration.activatedXcodeIntegration)
         assertEquals(
-            mapOf<SwiftExportDependencySelector, SwiftExportModuleOverride>(
+            mapOf<SwiftExportDependencySelector, SwiftExportDeclaredModuleMetadata>(
                 SwiftExportDependencySelector.Module("org.example", "foo") to
-                        SwiftExportModuleOverride(moduleName = "Second", rootPackage = "org.example.first")
+                        SwiftExportDeclaredModuleMetadata(moduleName = "Second", rootPackage = "org.example.first")
             ),
             integration.dependencyOverrides.get(),
         )
@@ -183,9 +189,9 @@ class ExportExtensionUnitTests {
 
         val integration = assertNotNull(project.exportExtension.swiftExportConfiguration.activatedXcodeIntegration)
         assertEquals(
-            mapOf<SwiftExportDependencySelector, SwiftExportModuleOverride>(
+            mapOf<SwiftExportDependencySelector, SwiftExportDeclaredModuleMetadata>(
                 SwiftExportDependencySelector.Module("org.example", "foo") to
-                        SwiftExportModuleOverride(moduleName = "FromCoordinates", rootPackage = "org.example.foo")
+                        SwiftExportDeclaredModuleMetadata(moduleName = "FromCoordinates", rootPackage = "org.example.foo")
             ),
             integration.dependencyOverrides.get(),
         )
@@ -203,12 +209,44 @@ class ExportExtensionUnitTests {
 
         val integration = assertNotNull(root.exportExtension.swiftExportConfiguration.activatedXcodeIntegration)
         assertEquals(
-            mapOf<SwiftExportDependencySelector, SwiftExportModuleOverride>(
+            mapOf<SwiftExportDependencySelector, SwiftExportDeclaredModuleMetadata>(
                 SwiftExportDependencySelector.ProjectPath(":sub") to
-                        SwiftExportModuleOverride(moduleName = "Sub", rootPackage = null)
+                        SwiftExportDeclaredModuleMetadata(moduleName = "Sub", rootPackage = null)
             ),
             integration.dependencyOverrides.get(),
         )
+    }
+
+    @Test
+    fun `a notation that cannot be converted is rejected at the configure call site`() {
+        val project = buildProjectWithMPP()
+
+        assertFailsWith<InvalidUserDataException> {
+            project.exportExtension.swift {
+                xcodeIntegration {
+                    configure(":no-group") { moduleName.set("NoGroup") }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `a provider notation is not realized while configuring`() {
+        val project = buildProjectWithMPP()
+        var realized = false
+        project.exportExtension.swift {
+            xcodeIntegration {
+                configure(project.provider { realized = true; "org.example:foo:1.0" }) { moduleName.set("Foo") }
+            }
+        }
+
+        assertFalse(realized)
+        val integration = assertNotNull(project.exportExtension.swiftExportConfiguration.activatedXcodeIntegration)
+        assertEquals(
+            setOf(SwiftExportDependencySelector.Module("org.example", "foo")),
+            integration.dependencyOverrides.get().keys,
+        )
+        assertTrue(realized)
     }
 
     @Test
@@ -1038,7 +1076,7 @@ class ExportExtensionSwiftExportTests {
     }
 
     @Test
-    fun `an override with an invalid module name is reported`() {
+    fun `an override with an invalid module name fails`() {
         val project = swiftExportProject(
             multiplatform = {
                 iosSimulatorArm64()
@@ -1057,15 +1095,11 @@ class ExportExtensionSwiftExportTests {
 
         project.evaluate()
 
-        // The diagnostic is reported while the swiftModules provider is realized, not during configuration.
-        project.tasks.withType(SwiftExportTask::class.java).single()
-            .parameters.swiftModules.getOrElse(emptyList())
-
-        project.assertContainsDiagnostic(KotlinToolingDiagnostics.SwiftExportInvalidModuleName)
+        project.assertRealizingSwiftModulesFailsWith(KotlinToolingDiagnostics.SwiftExportInvalidModuleName)
     }
 
     @Test
-    fun `an override for a dependency absent from the graph is reported`() {
+    fun `an override for a dependency absent from the graph fails`() {
         val project = swiftExportProject(
             multiplatform = {
                 iosSimulatorArm64()
@@ -1082,15 +1116,40 @@ class ExportExtensionSwiftExportTests {
 
         project.evaluate()
 
-        // The diagnostic is reported while the swiftModules provider is realized, not during configuration.
-        project.tasks.withType(SwiftExportTask::class.java).single()
-            .parameters.swiftModules.getOrElse(emptyList())
-
-        project.assertContainsDiagnostic(KotlinToolingDiagnostics.SwiftExportModuleResolutionError)
+        project.assertRealizingSwiftModulesFailsWith(
+            KotlinToolingDiagnostics.SwiftExportDependencyOverrideNotApplied,
+            withMessage = "not found in the resolved dependency graph: org.example:not-in-the-graph",
+        )
     }
 
     @Test
-    fun `an override matched by a transitive dependency is not reported as absent`() {
+    fun `an override for a dependency that is in the graph but never exported fails with a distinct message`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    api("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                    api("org.glassfish:jakarta.json:2.0.1")
+                }
+            },
+            swiftExport = {
+                xcodeIntegration {
+                    configure("org.glassfish:jakarta.json:2.0.1") { moduleName.set("Json") }
+                }
+            }
+        )
+
+        project.evaluate()
+
+        project.assertRealizingSwiftModulesFailsWith(
+            KotlinToolingDiagnostics.SwiftExportDependencyOverrideNotApplied,
+            withMessage = "not exported to Swift, because only Kotlin libraries are (JVM jars and cinterop klibs are not): " +
+                    "org.glassfish:jakarta.json",
+        )
+    }
+
+    @Test
+    fun `an override matched by a transitive dependency is applied`() {
         val project = swiftExportProject(
             multiplatform = {
                 iosSimulatorArm64()
@@ -1107,10 +1166,135 @@ class ExportExtensionSwiftExportTests {
 
         project.evaluate()
 
-        project.tasks.withType(SwiftExportTask::class.java).single()
-            .parameters.swiftModules.getOrElse(emptyList())
+        val actualModules = project.tasks.withType(SwiftExportTask::class.java).single().parameters.swiftModules.get()
 
-        project.assertNoDiagnostics(KotlinToolingDiagnostics.SwiftExportModuleResolutionError)
+        assertEquals(listOf("ByteString"), actualModules.map { it.moduleName })
+        project.assertNoDiagnostics(KotlinToolingDiagnostics.SwiftExportDependencyOverrideNotApplied)
+    }
+
+    @Test
+    fun `an override written against an available-at target variant is applied`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    api("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                }
+            },
+            swiftExport = {
+                xcodeIntegration {
+                    // The klib is published under the target-suffixed module; the root module redirects to it.
+                    // Either name identifies the same module, so the override must apply through both.
+                    configure("org.jetbrains.kotlinx:kotlinx-io-bytestring-iossimulatorarm64:0.7.0") {
+                        moduleName.set("ByteString")
+                    }
+                }
+            }
+        )
+
+        project.evaluate()
+
+        val actualModules = project.tasks.withType(SwiftExportTask::class.java).single().parameters.swiftModules.get()
+
+        assertEquals(listOf("ByteString"), actualModules.map { it.moduleName })
+        project.assertNoDiagnostics(KotlinToolingDiagnostics.SwiftExportDependencyOverrideNotApplied)
+    }
+
+    @Test
+    fun `two overrides producing the same module name fail`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    api("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+                }
+            },
+            swiftExport = {
+                xcodeIntegration {
+                    configure("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0") { moduleName.set("Clash") }
+                    configure("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0") { moduleName.set("Clash") }
+                }
+            }
+        )
+
+        project.evaluate()
+
+        project.assertRealizingSwiftModulesFailsWith(KotlinToolingDiagnostics.SwiftExportDuplicateModuleNames)
+    }
+
+    @Test
+    fun `an override clashing with the exported module name fails`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    api("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                }
+            },
+            swiftExport = {
+                moduleName.set("Shared")
+                xcodeIntegration {
+                    configure("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0") { moduleName.set("Shared") }
+                }
+            }
+        )
+
+        project.evaluate()
+
+        project.assertRealizingSwiftModulesFailsWith(
+            KotlinToolingDiagnostics.SwiftExportDuplicateModuleNames,
+            withMessage = "'Shared': the module being exported, org.jetbrains.kotlinx:kotlinx-io-bytestring",
+        )
+    }
+
+    @Test
+    fun `distinct module names are not reported as duplicates`() {
+        val project = swiftExportProject(
+            multiplatform = {
+                iosSimulatorArm64()
+                sourceSets.commonMain.dependencies {
+                    api("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0")
+                }
+            },
+            swiftExport = {
+                moduleName.set("Shared")
+                xcodeIntegration {
+                    configure("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.7.0") { moduleName.set("ByteString") }
+                }
+            }
+        )
+
+        project.evaluate()
+
+        val actualModules = project.tasks.withType(SwiftExportTask::class.java).single().parameters.swiftModules.get()
+
+        assertEquals(listOf("ByteString"), actualModules.map { it.moduleName })
+        project.assertNoDiagnostics(KotlinToolingDiagnostics.SwiftExportDuplicateModuleNames)
+    }
+
+    /**
+     * The FATAL diagnostics of the export graph are reported while the `swiftModules` provider is realized, not
+     * during configuration, and outside a real build the collector turns a FATAL into an exception right away.
+     * Gradle wraps whatever a task property's provider throws into a `PropertyQueryException`, so the diagnostic's
+     * exception is looked up along the cause chain.
+     */
+    private fun Project.assertRealizingSwiftModulesFailsWith(
+        diagnostic: ToolingDiagnosticFactory,
+        withMessage: String? = null,
+    ) {
+        val thrown = assertFails {
+            tasks.withType(SwiftExportTask::class.java).single().parameters.swiftModules.get()
+        }
+        val exception = generateSequence(thrown) { it.cause }.filterIsInstance<InvalidUserCodeException>().firstOrNull()
+            ?: fail("Expected an InvalidUserCodeException in the cause chain, but got:\n${thrown.stackTraceToString()}")
+        assertContainsDiagnostic(diagnostic)
+        if (withMessage != null) {
+            assertTrue(
+                exception.message.orEmpty().contains(withMessage),
+                "Expected the failure message to contain '$withMessage', but was:\n${exception.message}",
+            )
+        }
     }
 }
 

@@ -7,16 +7,19 @@ package org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.internal
 
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ModuleVersionIdentifier
-import org.gradle.api.artifacts.component.ComponentIdentifier
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedArtifactResult
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnosticsSeverity
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.reportDiagnostic
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.ConsumerOverridesMetadataSource
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportDeclaredModuleMetadata
 import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportDependencySelector
 import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportModuleMetadataSource
+import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.SwiftExportResolvedComponent
 import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.declaredModuleName
 import org.jetbrains.kotlin.gradle.plugin.mpp.export.internal.declaredRootPackage
 import org.jetbrains.kotlin.gradle.utils.LazyResolvedConfigurationWithArtifacts
@@ -73,14 +76,8 @@ internal class SwiftExportModulesInput(
     val apiConfiguration: LazyResolvedConfigurationWithArtifacts?,
     /** Modules requested through the legacy `swiftExport { export(...) }` DSL. */
     val legacyExportedModules: Set<SwiftExportedDependency>,
-    /** Declared metadata layers, highest precedence first. KT-87987 appends one entry. */
-    val metadataSources: List<SwiftExportModuleMetadataSource>,
-    /**
-     * Selectors of the consumer overrides, used only to report the ones that matched nothing. Kept separate
-     * from [metadataSources] because "matched nothing" is specific to the consumer override layer: producer
-     * metadata comes from the graph and so always matches by construction.
-     */
-    val overrideSelectors: Set<SwiftExportDependencySelector>,
+    /** Overrides declared via `xcodeIntegration { configure(dependency) { } }`, keyed by the dependency they select. */
+    val consumerOverrides: Map<SwiftExportDependencySelector, SwiftExportDeclaredModuleMetadata>,
     /** The Swift module name of the module being exported, for collision detection. */
     val rootModuleName: String,
 )
@@ -89,19 +86,23 @@ internal fun Project.collectModules(
     input: Provider<SwiftExportModulesInput>,
 ): Provider<List<SwiftExportedModule>> = input.map { findAndCreateSwiftExportedModules(it) }
 
+/**
+ * One artifact of the resolved graph together with every graph node that resolved to it.
+ *
+ * Kotlin Multiplatform libraries publish "available-at" variants that redirect a root module (e.g.
+ * `kotlinx-io-bytestring`) to a per-target one (e.g. `kotlinx-io-bytestring-iossimulatorarm64`) for the physical
+ * artifact, so one klib can be reached through several nodes with different module names. Consumer overrides and
+ * declared metadata are matched against all of them; the derived name comes from the first one encountered.
+ */
 private class ResolvedArtifactWithVersionIdentifier(
     val moduleVersion: ModuleVersionIdentifier,
     val artifact: ResolvedArtifactResult,
-    /**
-     * The [ComponentIdentifier] of the resolved dependency graph node, as opposed to
-     * [ResolvedArtifactResult.getId]'s owner. Kotlin Multiplatform libraries publish "available-at" variants
-     * that redirect a root module (e.g. `kotlinx-io-bytestring`) to a per-target one (e.g.
-     * `kotlinx-io-bytestring-iossimulatorarm64`) for the physical artifact, so the artifact's own component
-     * identifier can carry a different, target-suffixed module name than the one a consumer override refers
-     * to. This identifier is the one consumer overrides and declared metadata are matched against.
-     */
-    val componentId: ComponentIdentifier,
+    firstComponent: SwiftExportResolvedComponent,
 ) : Serializable {
+    val components: MutableList<SwiftExportResolvedComponent> = mutableListOf(firstComponent)
+
+    val component: SwiftExportResolvedComponent get() = components.first()
+
     private val artifactFilePath: String get() = artifact.file.absolutePath
 
     override fun equals(other: Any?): Boolean {
@@ -118,7 +119,7 @@ private class ResolvedArtifactWithVersionIdentifier(
     }
 
     fun defaultExportedModuleName(): String {
-        return when (val id = componentId) {
+        return when (val id = component.id) {
             is ProjectComponentIdentifier -> id.projectPath
             is ModuleComponentIdentifier -> moduleVersion.inheritedName
             else -> error("Unexpected component identifier type: ${id::class}")
@@ -126,46 +127,72 @@ private class ResolvedArtifactWithVersionIdentifier(
     }
 }
 
+private val ResolvedDependencyResult.component: SwiftExportResolvedComponent
+    get() = SwiftExportResolvedComponent(selected.id, selected.moduleVersion)
+
 private fun LazyResolvedConfigurationWithArtifacts.filteredArtifacts(
-    dependenciesSelector: LazyResolvedConfigurationWithArtifacts.() -> Iterable<ResolvedDependencyResult>
+    dependencies: Iterable<ResolvedDependencyResult>,
 ): Set<ResolvedArtifactWithVersionIdentifier> {
-    return dependenciesSelector().mapNotNullTo(mutableSetOf()) { dependency ->
+    val byArtifactPath = LinkedHashMap<String, ResolvedArtifactWithVersionIdentifier>()
+    for (dependency in dependencies) {
         val artifacts = getArtifacts(dependency.selected).filterNot {
             it.file.isCinteropKlib || it.file.isJavaJar
         }
-
         val moduleVersion = dependency.selected.moduleVersion
+        if (artifacts.isEmpty() || moduleVersion == null) continue
 
-        if (artifacts.isNotEmpty() && moduleVersion != null) {
-            ResolvedArtifactWithVersionIdentifier(moduleVersion, artifacts.single(), dependency.selected.id)
+        val artifact = artifacts.single()
+        val existing = byArtifactPath[artifact.file.absolutePath]
+        if (existing == null) {
+            byArtifactPath[artifact.file.absolutePath] =
+                ResolvedArtifactWithVersionIdentifier(moduleVersion, artifact, dependency.component)
         } else {
-            null
+            existing.components += dependency.component
         }
     }
+    return byArtifactPath.values.toSet()
 }
+
+private val LazyResolvedConfigurationWithArtifacts.directDependencies: List<ResolvedDependencyResult>
+    get() = root.dependencies
+        .filterIsInstance<ResolvedDependencyResult>()
+        .filterNot { it.isConstraint }
 
 private val File.isCinteropKlib get() = name.contains("-cinterop-") || name.contains("Cinterop-")
 private val File.isJavaJar get() = extension == "jar"
 
-private const val LEGACY_EXPORT_DSL = "swiftExport { export() }"
-private const val XCODE_INTEGRATION_CONFIGURE_DSL = "export { swift { xcodeIntegration { configure() } } }"
+private const val EXPORTED_MODULE_ITSELF = "the module being exported"
 
 private fun Project.findAndCreateSwiftExportedModules(
     input: SwiftExportModulesInput,
 ): List<SwiftExportedModule> {
-    val resolvedExportArtifacts = input.exportConfiguration.filteredArtifacts { allResolvedDependencies }
+    val resolvedExportArtifacts = input.exportConfiguration.filteredArtifacts(input.exportConfiguration.allResolvedDependencies)
     val resolvedDirectApiArtifacts = input.apiConfiguration
-        ?.filteredArtifacts {
-            root.dependencies
-                .filterIsInstance<ResolvedDependencyResult>()
-                .filterNot { it.isConstraint }
-        }
+        ?.let { it.filteredArtifacts(it.directDependencies) }
         ?: emptySet()
 
-    val sources = input.metadataSources
+    // Declared metadata layers, highest precedence first. KT-87987 appends its producer metadata source here.
+    val sources = listOf(ConsumerOverridesMetadataSource(input.consumerOverrides))
+
+    // The api configuration is only walked one level deep, so its artifacts know just the node the build script
+    // declared. The export configuration is walked fully and also sees the "available-at" nodes; the artifact is
+    // the same, so its nodes are the union of both.
+    fun ResolvedArtifactWithVersionIdentifier.allComponents(): List<SwiftExportResolvedComponent> =
+        (components + resolvedExportArtifacts.find { it == this }?.components.orEmpty()).distinct()
+
     val result = mutableListOf<SwiftExportedModule>()
     val processedComponents = mutableSetOf<ResolvedArtifactWithVersionIdentifier>()
     val missingModules = mutableListOf<SwiftExportedDependency>()
+
+    // Final module name to the components that produced it, for collision detection. Seeded with the
+    // exported module's own name: a dependency colliding with it breaks the Swift build just as hard.
+    val moduleNameOwners = mutableMapOf(input.rootModuleName to mutableListOf(EXPORTED_MODULE_ITSELF))
+
+    fun export(module: SwiftExportedModule, artifact: ResolvedArtifactWithVersionIdentifier) {
+        result += module
+        moduleNameOwners.getOrPut(module.moduleName) { mutableListOf() } += artifact.component.displayName
+        processedComponents += artifact
+    }
 
     // Process all explicitly exported modules
     for (explicitModule in input.legacyExportedModules) {
@@ -192,95 +219,113 @@ private fun Project.findAndCreateSwiftExportedModules(
         }
 
         if (matchingArtifact != null) {
-            result.add(
+            export(
                 createFullyExportedSwiftExportedModule(
                     explicitModule.moduleName.orElse(
                         normalizedAndValidatedModuleName(explicitModule.inheritedName)
                     ).get(),
                     explicitModule.flattenPackage.orNull,
                     matchingArtifact.artifact.file
-                )
+                ),
+                matchingArtifact,
             )
-
-            // Track which components we've processed
-            processedComponents.add(matchingArtifact)
         } else {
             missingModules.add(explicitModule)
         }
     }
 
     if (missingModules.isNotEmpty()) {
-        reportDiagnostic(
-            KotlinToolingDiagnostics.SwiftExportModuleResolutionError(
-                missingModules.map { it.name },
-                LEGACY_EXPORT_DSL,
-            )
-        )
+        reportDiagnostic(KotlinToolingDiagnostics.SwiftExportModuleResolutionError(missingModules.map { it.name }))
     }
 
     for (artifact in resolvedDirectApiArtifacts) {
         if (artifact in processedComponents) continue
-        val componentId = artifact.componentId
-        result.add(
+        export(
             createFullyExportedSwiftExportedModule(
-                moduleName = declaredOrDerivedModuleName(sources, componentId) {
+                moduleName = declaredOrDerivedModuleName(sources, artifact.allComponents()) {
                     artifact.defaultExportedModuleName().normalizedSwiftExportModuleName
                 },
-                flattenPackage = sources.declaredRootPackage(componentId),
+                flattenPackage = sources.declaredRootPackage(artifact.allComponents()),
                 artifact = artifact.artifact.file,
-            )
+            ),
+            artifact,
         )
-        // Track which components we've processed
-        processedComponents.add(artifact)
     }
 
     // Then process remaining components as transitive
-    resolvedExportArtifacts
-        .filterNot { artifact -> artifact in processedComponents }
-        .forEach { artifact ->
-            val componentId = artifact.componentId
-            result.add(
-                createTransitiveSwiftExportedModule(
-                    // `rootPackage` is deliberately not read here: createTransitiveSwiftExportedModule
-                    // hardcodes flattenPackage = null, so a declared root package has no effect on a module
-                    // that is only transitively exported.
-                    declaredOrDerivedModuleName(sources, componentId) {
-                        artifact.moduleVersion.inheritedName.normalizedSwiftExportModuleName
-                    },
-                    artifact.artifact.file
-                )
-            )
-        }
-
-    val allComponents = (resolvedExportArtifacts + resolvedDirectApiArtifacts)
-        .map { it.componentId }
-    val unmatchedOverrides = input.overrideSelectors.filterNot { selector ->
-        allComponents.any { selector.matches(it) }
-    }
-    if (unmatchedOverrides.isNotEmpty()) {
-        reportDiagnostic(
-            KotlinToolingDiagnostics.SwiftExportModuleResolutionError(
-                unmatchedOverrides.map { it.displayName },
-                XCODE_INTEGRATION_CONFIGURE_DSL,
-            )
+    for (artifact in resolvedExportArtifacts) {
+        if (artifact in processedComponents) continue
+        export(
+            createTransitiveSwiftExportedModule(
+                // `rootPackage` is deliberately not read here: createTransitiveSwiftExportedModule
+                // hardcodes flattenPackage = null, so a declared root package has no effect on a module
+                // that is only transitively exported.
+                declaredOrDerivedModuleName(sources, artifact.allComponents()) {
+                    artifact.moduleVersion.inheritedName.normalizedSwiftExportModuleName
+                },
+                artifact.artifact.file
+            ),
+            artifact,
         )
+    }
+
+    reportOverridesNotApplied(
+        input,
+        exportedComponents = (resolvedExportArtifacts + resolvedDirectApiArtifacts).flatMap { it.allComponents() },
+    )
+
+    val duplicateModuleNames = moduleNameOwners.filterValues { owners -> owners.size > 1 }
+    if (duplicateModuleNames.isNotEmpty()) {
+        reportDiagnostic(KotlinToolingDiagnostics.SwiftExportDuplicateModuleNames(duplicateModuleNames))
     }
 
     return result
 }
 
 /**
+ * Fails on consumer overrides that had nothing to apply to.
+ *
+ * An override is checked against the whole resolved graph, not only against [exportedComponents], so that the
+ * user is told the difference between a dependency that is not there at all and one that is there but is never
+ * exported to Swift (a JVM jar, a cinterop klib): both look the same from [exportedComponents] alone, and "not
+ * found" would be wrong for the latter.
+ */
+private fun Project.reportOverridesNotApplied(
+    input: SwiftExportModulesInput,
+    exportedComponents: List<SwiftExportResolvedComponent>,
+) {
+    val notApplied = input.consumerOverrides.keys.filterNot { selector -> exportedComponents.any(selector::matches) }
+    if (notApplied.isEmpty()) return
+
+    val graph = (input.exportConfiguration.allResolvedDependencies + input.apiConfiguration?.directDependencies.orEmpty())
+        .map { it.component }
+    val (notExported, absent) = notApplied.partition { selector -> graph.any(selector::matches) }
+    reportDiagnostic(
+        KotlinToolingDiagnostics.SwiftExportDependencyOverrideNotApplied(
+            absent = absent.map { it.displayName },
+            notExported = notExported.map { it.displayName },
+        )
+    )
+}
+
+/**
  * The module name declared by the highest precedence layer that declares one, or [derived] otherwise.
  *
  * A declared name is used verbatim — normalizing a name the user wrote would silently rewrite it — but is
- * still validated, unlike the legacy explicit `swiftExport { export(...) }` path.
+ * still validated, unlike the legacy explicit `swiftExport { export(...) }` path. The validation is FATAL: it
+ * runs once the export graph is assembled, after `checkKotlinGradlePluginConfigurationErrors`, so an ERROR
+ * would be logged and the invalid name would still reach the Swift compiler.
  */
 private fun Project.declaredOrDerivedModuleName(
     sources: List<SwiftExportModuleMetadataSource>,
-    component: ComponentIdentifier,
+    components: List<SwiftExportResolvedComponent>,
     derived: () -> String,
-): String = sources.declaredModuleName(component)
-    ?.also { validateSwiftExportModuleName(it) }
+): String = sources.declaredModuleName(components)
+    ?.also { declared ->
+        if (!declared.matches(Regex(SWIFT_EXPORT_MODULE_NAME_VALIDATION_PATTERN))) {
+            reportDiagnostic(KotlinToolingDiagnostics.SwiftExportInvalidModuleName(declared, KotlinToolingDiagnosticsSeverity.FATAL))
+        }
+    }
     ?: derived()
 
 private data class SwiftExportedModuleImp(
