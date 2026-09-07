@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.analysis.api.rendering
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaPlatformInterface
 import org.jetbrains.kotlin.analysis.api.KaSpi
+import org.jetbrains.kotlin.analysis.api.KaSpiExtensionPoint
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeOwner
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeToken
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
@@ -44,9 +45,11 @@ public interface KaRenderingOutput {
      * Called when rendering of [piece] begins. Everything appended until the balancing [leave] call is the output of that piece; the
      * calls nest when a piece renders other pieces.
      */
+    @KaSpiExtensionPoint
     public fun enter(piece: KaPiece<*>) {}
 
     /** Called when rendering of [piece] ends. Balances the corresponding [enter] call, also when rendering fails with an exception. */
+    @KaSpiExtensionPoint
     public fun leave(piece: KaPiece<*>) {}
 
     /**
