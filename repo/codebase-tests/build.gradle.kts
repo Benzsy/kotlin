@@ -132,6 +132,10 @@ run {
         testClassesDirs = junit5TestCompilation.output.classesDirs
         classpath = junit5TestCompilation.runtimeDependencyFiles
 
+        providers.gradleProperty("tests.additionalJvmArgument").orNull?.let { args ->
+            jvmArgs(args.split(" "))
+        }
+
         testLogging {
             events("passed", "skipped", "failed")
         }
