@@ -1,6 +1,11 @@
 // Klib ABI Dump
 // Targets: [androidNativeArm32, androidNativeArm64, androidNativeX64, androidNativeX86, iosArm64, iosSimulatorArm64, iosX64, js, linuxArm32Hfp, linuxArm64, linuxX64, macosArm64, macosX64, mingwX64, tvosArm64, tvosSimulatorArm64, tvosX64, wasmJs, wasmWasi, watchosArm32, watchosArm64, watchosDeviceArm64, watchosSimulatorArm64, watchosX64]
 // Alias: native => [androidNativeArm32, androidNativeArm64, androidNativeX64, androidNativeX86, iosArm64, iosSimulatorArm64, iosX64, linuxArm32Hfp, linuxArm64, linuxX64, macosArm64, macosX64, mingwX64, tvosArm64, tvosSimulatorArm64, tvosX64, watchosArm32, watchosArm64, watchosDeviceArm64, watchosSimulatorArm64, watchosX64]
+// Alias: androidNative => [androidNativeArm32, androidNativeArm64, androidNativeX64, androidNativeX86]
+// Alias: linux => [linuxArm32Hfp, linuxArm64, linuxX64]
+// Alias: ios => [iosArm64, iosSimulatorArm64, iosX64]
+// Alias: macos => [macosArm64, macosX64]
+// Alias: tvos => [tvosArm64, tvosSimulatorArm64, tvosX64]
 // Rendering settings:
 // - Signature version: 2
 // - Show manifest properties: true
@@ -9251,6 +9256,15 @@ final inline fun kotlin/ushortArrayOf(kotlin/UShortArray...): kotlin/UShortArray
 final suspend inline fun <#A: kotlin/Any?> kotlin.coroutines.intrinsics/suspendCoroutineUninterceptedOrReturn(crossinline kotlin/Function1<kotlin.coroutines/Continuation<#A>, kotlin/Any?>): #A // kotlin.coroutines.intrinsics/suspendCoroutineUninterceptedOrReturn|suspendCoroutineUninterceptedOrReturn(kotlin.Function1<kotlin.coroutines.Continuation<0:0>,kotlin.Any?>){0§<kotlin.Any?>}[0]
 final suspend inline fun <#A: kotlin/Any?> kotlin.coroutines/suspendCoroutine(crossinline kotlin/Function1<kotlin.coroutines/Continuation<#A>, kotlin/Unit>): #A // kotlin.coroutines/suspendCoroutine|suspendCoroutine(kotlin.Function1<kotlin.coroutines.Continuation<0:0>,kotlin.Unit>){0§<kotlin.Any?>}[0]
 
+// Targets: [androidNative, ios, js, linux, macos, mingwX64, tvos, wasmJs, wasmWasi, watchosArm64, watchosDeviceArm64, watchosSimulatorArm64, watchosX64]
+final inline fun (kotlin/Boolean).kotlin/onFalse(kotlin/Function0<kotlin/Unit>): kotlin/Boolean // kotlin/onFalse|onFalse@kotlin.Boolean(kotlin.Function0<kotlin.Unit>){}[0]
+
+// Targets: [androidNative, ios, js, linux, macos, mingwX64, tvos, wasmJs, wasmWasi, watchosArm64, watchosDeviceArm64, watchosSimulatorArm64, watchosX64]
+final inline fun (kotlin/Boolean).kotlin/onTrue(kotlin/Function0<kotlin/Unit>): kotlin/Boolean // kotlin/onTrue|onTrue@kotlin.Boolean(kotlin.Function0<kotlin.Unit>){}[0]
+
+// Targets: [androidNative, ios, js, linux, macos, mingwX64, tvos, wasmJs, wasmWasi, watchosArm64, watchosDeviceArm64, watchosSimulatorArm64, watchosX64]
+final inline fun <#A: kotlin/Any?> kotlin/ifOrNull(kotlin/Boolean, kotlin/Function0<#A>): #A? // kotlin/ifOrNull|ifOrNull(kotlin.Boolean;kotlin.Function0<0:0>){0§<kotlin.Any?>}[0]
+
 // Targets: [native, wasmJs, wasmWasi]
 open annotation class kotlin.js/JsFileName : kotlin/Annotation { // kotlin.js/JsFileName|null[1]
     constructor <init>(kotlin/String) // kotlin.js/JsFileName.<init>|<init>(kotlin.String){}[1]
@@ -14319,19 +14333,10 @@ final fun (kotlin/Throwable).kotlin/printStackTrace() // kotlin/printStackTrace|
 final fun <#A: kotlin/Any?> kotlin.collections/copyToArray(kotlin.collections/Collection<#A>): kotlin/Array<#A> // kotlin.collections/copyToArray|copyToArray(kotlin.collections.Collection<0:0>){0§<kotlin.Any?>}[0]
 
 // Targets: [js, wasmJs, wasmWasi]
-final inline fun (kotlin/Boolean).kotlin/onFalse(kotlin/Function0<kotlin/Unit>): kotlin/Boolean // kotlin/onFalse|onFalse@kotlin.Boolean(kotlin.Function0<kotlin.Unit>){}[0]
-
-// Targets: [js, wasmJs, wasmWasi]
-final inline fun (kotlin/Boolean).kotlin/onTrue(kotlin/Function0<kotlin/Unit>): kotlin/Boolean // kotlin/onTrue|onTrue@kotlin.Boolean(kotlin.Function0<kotlin.Unit>){}[0]
-
-// Targets: [js, wasmJs, wasmWasi]
 final inline fun <#A: kotlin/Any?> (kotlin.collections/Collection<#A>).kotlin.collections/toTypedArray(): kotlin/Array<#A> // kotlin.collections/toTypedArray|toTypedArray@kotlin.collections.Collection<0:0>(){0§<kotlin.Any?>}[0]
 
 // Targets: [js, wasmJs, wasmWasi]
 final inline fun <#A: kotlin/Any?> kotlin/emptyArray(): kotlin/Array<#A> // kotlin/emptyArray|emptyArray(){0§<kotlin.Any?>}[0]
-
-// Targets: [js, wasmJs, wasmWasi]
-final inline fun <#A: kotlin/Any?> kotlin/ifOrNull(kotlin/Boolean, kotlin/Function0<#A>): #A? // kotlin/ifOrNull|ifOrNull(kotlin.Boolean;kotlin.Function0<0:0>){0§<kotlin.Any?>}[0]
 
 // Targets: [js, wasmJs]
 open annotation class kotlin.js/ExperimentalWasmJsInterop : kotlin/Annotation { // kotlin.js/ExperimentalWasmJsInterop|null[0]
