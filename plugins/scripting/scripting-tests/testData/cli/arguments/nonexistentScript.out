@@ -1,2 +1,3 @@
+warning: running Kotlin compiler using JDK 11 will not be supported in future versions of Kotlin. Consider upgrading to at least JDK 17 or supplying '-Xallow-pre-17-runtime-jdk' (which will only work until Kotlin 2.5.20-Beta1). See https://jb.gg/ztwbfx for more details.
 error: script file not found: path/to/nonexistent.kts; Specify path to the script file as the first argument
 COMPILATION_ERROR
