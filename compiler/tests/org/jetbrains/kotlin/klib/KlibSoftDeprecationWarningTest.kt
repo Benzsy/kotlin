@@ -106,7 +106,9 @@ class KlibSoftDeprecationWarningTest {
         assertNull(actualMessage.location)
 
         val actualMessageTextFiltered = actualMessage.message.lineSequence()
-            .joinToString(separator = "\n") { it.replace(tmpDir.pathString, "<path_prefix>") }
+            .map { it.replace(tmpDir.pathString, "<path_prefix>") }
+            .map { it.replace('\\', '/') }
+            .joinToString(separator = "\n")
 
         assertEquals(
             """
